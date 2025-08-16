@@ -38,8 +38,8 @@ const orderSchema = new mongoose.Schema({
   },
   orderType: {
     type: String,
-    enum: ["dine-in", "takeaway", "delivery"],
-    default: "dine-in", // default to dine-in
+    enum: ["Dine-In", "Takeaway", "Delivery"],
+    default: "Dine-In", // default to dine-in
   },
   totalPrice: {
     type: Number,
@@ -54,6 +54,17 @@ const orderSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
+  },
+  location: {
+    type: {
+      type: String,
+      enum: ["Point"],
+      // required: true,
+    },
+    coordinates: {
+      type: [Number],
+      // required: true,
+    },
   },
 });
 

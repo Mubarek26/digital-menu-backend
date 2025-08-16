@@ -4,13 +4,13 @@ const MenuItem = require("../models/MenuItem");
 const Order = require("../models/Order");
 
 exports.createOrder = catchAsync(async (req, res, next) => {
-  const { items, orderType, phoneNumber, tableNumber, paymentStatus } =
+  const { items, orderType, phoneNumber, tableNumber, paymentStatus, notes } =
     req.body;
   if (!items || items.length === 0) {
     return res.status(400).json({ error: "No items provided in the order." });
   }
   // extract the menu item IDs and quantities from the request body
-  const ids = items.map((item) => item.menuItemId);
+  const ids = items.map((item) => item._id);
   const menuItems = await MenuItem.find({ _id: { $in: ids } }); //
   // Create a map of menu items for easy lookup
   const menuItemMap = {};
@@ -22,10 +22,10 @@ exports.createOrder = catchAsync(async (req, res, next) => {
   let orderItems = [];
 
   items.forEach((item) => {
-    const menuItem = menuItemMap[item.menuItemId];
+    const menuItem = menuItemMap[item._id];
     if (!menuItem) {
       return next(
-        new AppError(`Menu item with ID ${item.menuItemId} not found`, 404)
+        new AppError(`Menu item with ID ${item._id} not found`, 404)
       );
     }
 
@@ -38,6 +38,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
       tableNumber: tableNumber, // Assuming table number is passed in the request body
       name: menuItem.name,
       paymentStatus: paymentStatus, // Assuming payment status is passed in the request body
+      notes: notes || "", // Optional customer note
     });
   });
   const newOrder = await Order.create({
@@ -46,6 +47,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     totalPrice,
     phoneNumber,
     tableNumber,
+    notes,
     // add more fields like userId, status, timestamp if needed
   });
 

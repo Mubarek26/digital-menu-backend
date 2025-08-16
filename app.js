@@ -14,9 +14,24 @@ const app = express();
 // app.use(cors())
 app.use(express.json());
 app.use(cookieParser());
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174", // another dev frontend
+  // "https://myfrontend.vercel.app" // production frontend
+];
+
 app.use(cors({
-    origin: "http://localhost:5173", // exact frontend origin
-    credentials: true
+  origin: function (origin, callback) {
+    // allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true); // origin allowed
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true
 }));
 
 app.use('/images', express.static(path.join(__dirname, 'uploads/foods')));
