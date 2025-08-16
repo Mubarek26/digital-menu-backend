@@ -61,11 +61,12 @@ exports.createOrder = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllOrders = catchAsync(async (req, res, next) => {
+  const orders = await Order.find()
   res.status(200).json({
     status: "success",
     message: "All orders retrieved successfully",
     data: {
-      orders: [], // This should be replaced with actual data from the database
+      orders: orders,
     },
   });
 });
