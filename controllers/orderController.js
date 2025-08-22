@@ -2,6 +2,7 @@ const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 const MenuItem = require("../models/MenuItem");
 const Order = require("../models/Order");
+const generateOrderId=require("../utils/generateOrderId")
 exports.createOrder = catchAsync(async (req, res, next) => {
   const { items, orderType, phoneNumber, tableNumber, paymentStatus, notes } =
     req.body;
@@ -39,8 +40,9 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     });
   });
   // generate a unique order id
-  // const orderId = await generateOrderId();
+  const orderId = await generateOrderId();
   const newOrder = await Order.create({
+    orderId,
     items: orderItems,
     orderType,
     totalPrice,
@@ -49,7 +51,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     notes,
     // add more fields like userId, status, timestamp if needed
   });
- // Push job to BullMQ queue for employee assignment
+  // Push job to BullMQ queue for employee assignment
   // await orderQueue.add("dispatchOrder", {
   //   orderId: newOrder._id,
   //   orderType,
@@ -137,6 +139,14 @@ exports.getTotalOrders = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.getMyOrders = catchAsync(async (req, res, next) => {
+  const userId = req.user?._id;
+  const orders = await Order.find({ assignedEmployeeId: userId });
+  res.status(200).json({
+    status: "success",
+    data: { orders },
+  });
+});
 exports.getTopSellingItems = catchAsync(async (req, res, next) => {
   const result = await Order.aggregate([
     {

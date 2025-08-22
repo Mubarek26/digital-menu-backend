@@ -4,9 +4,9 @@ const User = require('../models/UserModel');
 const Order = require("../models/Order");
 
 const ROLE_MAP = {
-  "Dine-In": "employee",
-  "Takeaway": "employee",
-  "Delivery": "employee",
+  "Dine-In": "Waiter",
+  "Takeaway": "Waiter",
+  "Delivery": "Delivery",
 };
 
 // Runs every minute
