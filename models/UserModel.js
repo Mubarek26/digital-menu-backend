@@ -19,6 +19,11 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'default.jpg',
   },
+  status: {
+    type: String,
+    // enum: ['active', 'inactive'],
+    default: 'available',
+  },
   password: {
     type: String,
     required: [true, 'A user must have a password'],
@@ -59,6 +64,7 @@ const userSchema = new mongoose.Schema({
     default: true,
     select: false, // Exclude from queries by default
   },
+  last_assigned_at: { type: Date, default: new Date(0) },
 });
 
 userSchema.pre('save', async function (next) {

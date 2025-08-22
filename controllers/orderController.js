@@ -2,7 +2,6 @@ const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 const MenuItem = require("../models/MenuItem");
 const Order = require("../models/Order");
-
 exports.createOrder = catchAsync(async (req, res, next) => {
   const { items, orderType, phoneNumber, tableNumber, paymentStatus, notes } =
     req.body;
@@ -24,9 +23,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
   items.forEach((item) => {
     const menuItem = menuItemMap[item._id];
     if (!menuItem) {
-      return next(
-        new AppError(`Menu item with ID ${item._id} not found`, 404)
-      );
+      return next(new AppError(`Menu item with ID ${item._id} not found`, 404));
     }
 
     totalPrice += menuItem.price * item.quantity;
@@ -41,6 +38,8 @@ exports.createOrder = catchAsync(async (req, res, next) => {
       notes: notes || "", // Optional customer note
     });
   });
+  // generate a unique order id
+  // const orderId = await generateOrderId();
   const newOrder = await Order.create({
     items: orderItems,
     orderType,
@@ -50,6 +49,19 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     notes,
     // add more fields like userId, status, timestamp if needed
   });
+ // Push job to BullMQ queue for employee assignment
+  // await orderQueue.add("dispatchOrder", {
+  //   orderId: newOrder._id,
+  //   orderType,
+  // });
+
+  const io = req.app.get("io");
+  if (newOrder && io) {
+    io.emit("newOrder", {
+      message: "A new order has been placed!",
+      order: newOrder,
+    });
+  }
 
   res.status(201).json({
     status: "success",
@@ -61,7 +73,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllOrders = catchAsync(async (req, res, next) => {
-  const orders = await Order.find()
+  const orders = await Order.find();
   res.status(200).json({
     status: "success",
     message: "All orders retrieved successfully",
@@ -128,32 +140,34 @@ exports.getTotalOrders = catchAsync(async (req, res, next) => {
 exports.getTopSellingItems = catchAsync(async (req, res, next) => {
   const result = await Order.aggregate([
     {
-      $unwind: "$items" // Unwind the items array to get individual items
+      $unwind: "$items", // Unwind the items array to get individual items
     },
     {
       $lookup: {
         from: "menuitems", // Assuming the collection name for MenuItem is "menuitems"
         localField: "items.name",
         foreignField: "name",
-        as: "menuItemInfo"
-    }
+        as: "menuItemInfo",
+      },
     },
     {
-      $unwind: "$menuItemInfo" // Unwind the menuItemInfo array to get individual menu item details
-  },
+      $unwind: "$menuItemInfo", // Unwind the menuItemInfo array to get individual menu item details
+    },
     {
       $group: {
         _id: "$items.name",
         totalSold: { $sum: "$items.quantity" },
-        totalRevenue: { $sum: { $multiply: ["$items.quantity", "$menuItemInfo.price"] } },
+        totalRevenue: {
+          $sum: { $multiply: ["$items.quantity", "$menuItemInfo.price"] },
+        },
       },
     },
     {
-      $sort: { totalSold: -1 } // Sort by total sold in descending order
+      $sort: { totalSold: -1 }, // Sort by total sold in descending order
     },
     {
-      $limit: 10 // Limit to top 10 selling items
-    }
+      $limit: 10, // Limit to top 10 selling items
+    },
   ]);
   res.status(200).json({
     status: "success",
@@ -161,15 +175,14 @@ exports.getTopSellingItems = catchAsync(async (req, res, next) => {
     data: {
       topSellingItems: result, // This should be replaced with actual data from the database
     },
-  })
+  });
 });
 const thirtyDaysAgo = new Date();
 thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
 exports.activeCustomers = catchAsync(async (req, res, next) => {
   const result = await Order.aggregate([
-    
-      {
+    {
       $match: {
         createdAt: { $gte: thirtyDaysAgo }, // Filter orders from the last 30 days
       },
@@ -178,19 +191,16 @@ exports.activeCustomers = catchAsync(async (req, res, next) => {
       $group: {
         _id: "$phoneNumber", // Group by phone number
         orders: { $sum: 1 },
-        totalSpent: { $sum: "$totalPrice" }
-      }
-    }
-  ])
-  
+        totalSpent: { $sum: "$totalPrice" },
+      },
+    },
+  ]);
 
-
-  
   res.status(200).json({
     status: "success",
     message: "Active customers retrieved successfully",
     data: {
       activeCustomers: result, // This should be replaced with actual data from the database
     },
-  })
-})
+  });
+});

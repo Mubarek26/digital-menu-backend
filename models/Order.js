@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
+const { stripLow } = require("validator");
 
 const orderSchema = new mongoose.Schema({
+  orderId: String,
   tableNumber: {
     type: String,
     // required: true, // you can remove this if not using table numbers
@@ -55,6 +57,12 @@ const orderSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  assignedEmployeeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null, // ID of the employee assigned to this order
+    ref: "User", // Assuming you have a User model for employees
+  },
+  
   location: {
     type: {
       type: String,
