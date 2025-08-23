@@ -2,10 +2,17 @@ const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 const MenuItem = require("../models/MenuItem");
 const Order = require("../models/Order");
-const generateOrderId=require("../utils/generateOrderId")
+const generateOrderId = require("../utils/generateOrderId");
 exports.createOrder = catchAsync(async (req, res, next) => {
-  const { items, orderType, phoneNumber, tableNumber, paymentStatus, notes } =
-    req.body;
+  const {
+    items,
+    orderType,
+    phoneNumber,
+    tableNumber,
+    paymentStatus,
+    notes,
+    location,
+  } = req.body;
   if (!items || items.length === 0) {
     return res.status(400).json({ error: "No items provided in the order." });
   }
@@ -28,7 +35,8 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     }
 
     totalPrice += menuItem.price * item.quantity;
-
+    // Create GeoJSON location object if location is provided
+   
     orderItems.push({
       menuItem: menuItem._id,
       quantity: item.quantity,
@@ -41,6 +49,12 @@ exports.createOrder = catchAsync(async (req, res, next) => {
   });
   // generate a unique order id
   const orderId = await generateOrderId();
+   const geoLocation = location
+      ? {
+          type: "Point",
+          coordinates: [location.lng, location.lat],
+        }
+      : undefined;
   const newOrder = await Order.create({
     orderId,
     items: orderItems,
@@ -49,6 +63,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     phoneNumber,
     tableNumber,
     notes,
+    location: geoLocation, // Optional delivery location
     // add more fields like userId, status, timestamp if needed
   });
   // Push job to BullMQ queue for employee assignment
