@@ -1,7 +1,8 @@
 const catchAsync = require("../utils/catchAsync");
 const appError = require("../utils/appError");
 const MenuItem = require("../models/MenuItem");
-
+const fs = require("fs");
+const path = require('path');
 exports.getAllMenuItems = catchAsync(async (req, res, next) => {
   const menuItems = await MenuItem.find(); // Fetch all menu items from the database
   const fullUrl = req.protocol + "://" + req.get("host");
@@ -66,6 +67,8 @@ exports.updateMenuItem = catchAsync(async (req, res, next) => {
   if (req.body.name) item.name = req.body.name;
   if (req.body.description) item.description = req.body.description;
   if (req.body.price) item.price = req.body.price;
+  if (req.body.category) item.category = req.body.category;
+  if (req.body.available) item.isAvailable = req.body.available;
     await item.save(); // Save the updated item to the database
 
     // the full URL for the image

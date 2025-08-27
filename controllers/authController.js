@@ -77,7 +77,6 @@ exports.logout = catchAsync(async (req, res, next) => {
 });
 
 exports.protect = catchAsync(async (req, res, next) => {
-  console.log("rrrrrrrrrrrrrrrr")
   // Check if token is provided in Authorization header or cookies
   let token;
   if (
@@ -123,7 +122,6 @@ exports.protect = catchAsync(async (req, res, next) => {
       new AppError("User recently changed password! Please log in again.", 401)
     
     );
-    
   }
   // check if the current user is active
   if (!freshUser.active) {
@@ -222,9 +220,9 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
 });
 
 exports.updatePassword = catchAsync(async (req, res, next) => {
-  console.log(req.user.id);
+  console.log(req.user._id);
   // 1. Get user from collection
-  const user = await User.findById(req.user.id).select("+password");
+  const user = await User.findById(req.user._id).select("+password");
   // 2. Check if POSTed current password is correct
   if (!(await user.correctPassword(req.body.currentPassword, user.password))) {
     return next(new AppError("Your current password is wrong.", 401));
