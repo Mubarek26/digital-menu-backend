@@ -18,7 +18,7 @@ exports.updateOne = (Model) =>
   catchAsync(async (req, res, next) => {
     const doc = await Model.findByIdAndUpdate(req.params.id, req.body, {
       new: true, // return the updated document
-      runValidators: true, // run schema validators
+      // runValidators: true, // run schema validators
     }).select("+password");
     if (!doc) {
       return next(new AppError('No document found with that ID', 404));

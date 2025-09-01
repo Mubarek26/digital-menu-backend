@@ -21,8 +21,9 @@ const userSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    // enum: ['active', 'inactive'],
+    enum: ['available', 'busy'],
     default: 'available',
+    // required: true,
   },
   password: {
     type: String,
@@ -55,6 +56,7 @@ const userSchema = new mongoose.Schema({
     //   },
     //   message: 'Please provide a valid phone number!',
     // },
+    unique: true,
   },
   passwordChangedAt: Date,
   resetPasswordToken: String,

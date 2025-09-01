@@ -6,7 +6,6 @@ const path = require('path');
 exports.getAllMenuItems = catchAsync(async (req, res, next) => {
   const menuItems = await MenuItem.find(); // Fetch all menu items from the database
   const fullUrl = req.protocol + "://" + req.get("host");
-
   const formattedItems = menuItems.map((item) => ({
     ...item._doc,
     imageUrl: `${fullUrl}/images/${item.image}`,
