@@ -100,6 +100,54 @@ exports.getAllOrders = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.getOrderById = catchAsync(async (req, res, next) => {
+  const orderId = req.body.OrderId || req.params.id;
+
+  if (!orderId) {
+    return next(new AppError("Please provide order id", 400));
+  }
+
+  // Aggregation pipeline to include user info
+  const orders = await Order.aggregate([
+    { $match: { orderId: orderId.trim() } },
+    {
+      $lookup: {
+        from: "users",                  // users collection
+        localField: "assignedEmployeeId", // field in Order schema
+        foreignField: "_id",            // User’s _id
+        as: "userInfo",
+      },
+    },
+    {
+      $unwind: {
+        path: "$userInfo",
+        preserveNullAndEmptyArrays: true, // in case no user is assigned
+      },
+    },
+    {
+      $project: {
+        orderId: 1,
+        status: 1,
+        createdAt: 1,
+        // fields from user
+        "userInfo.name": 1,
+        "userInfo.phoneNumber": 1,
+      },
+    },
+  ]);
+
+  if (!orders || orders.length === 0) {
+    return next(new AppError("Order not found", 404));
+  }
+
+  res.status(200).json({
+    status: "success",
+    message: "Order retrieved successfully",
+    data: orders[0], // return single order with user info
+  });
+});
+
+
 // Update order status
 exports.updateOrderStatus = catchAsync(async (req, res, next) => {
   let status = req.body.status;
