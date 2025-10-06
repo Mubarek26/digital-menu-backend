@@ -12,6 +12,7 @@ const cookieParser = require('cookie-parser');
 const userRouter = require('./routes/userRouter'); // Import user routes
 const paymentRoutes = require('./routes/paymentRoutes')
 require('./utils/dispatcher.js')
+const settingsRoutes = require('./routes/settingsRoutes');
 
 dotenv.config(); // Load environment variables
 const app = express();
@@ -31,6 +32,8 @@ app.use('/api/v1/order', orderRoutes); // Import and use menu routes
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/categories', categoryRoutes);
 app.use('/api/v1/payment', paymentRoutes);
+app.use('/api/v1/settings', settingsRoutes);
+// console.log('app: mounted /api/v1/settings');
 app.all('*', (req, res, next) => {
   const error = new AppError(
     `Can't find ${req.originalUrl} on this server!`,
