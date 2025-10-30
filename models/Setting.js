@@ -13,6 +13,8 @@ const daySchema = new mongoose.Schema({
   closed: { type: Boolean, default: false },
 });
 
+
+
 const settingSchema = new mongoose.Schema(
   {
     services: { type: serviceSchema, default: () => ({}) },
