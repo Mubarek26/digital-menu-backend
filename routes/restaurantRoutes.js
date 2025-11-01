@@ -1,0 +1,37 @@
+const express = require("express");
+
+const uploads = require("../middlewares/uploads");
+const {
+  createRestaurant,
+  getAllRestaurants,
+  getRestaurantById,
+  assignOwner,
+  updateRestaurant,
+  deleteRestaurant,
+} = require("../controllers/restaurantController");
+
+const authcontroller = require("../controllers/authController");
+
+const router = express.Router();
+
+// Create & list restaurants
+router
+  .route("/")
+  // Run uploads first to ensure multipart/form-data is parsed before auth middleware
+  .post(uploads, authcontroller.protect, createRestaurant)  // Admin only
+  .get(getAllRestaurants);              // Public or authenticated
+
+// Get, update, delete specific restaurant
+router
+  .route("/:id")
+  .get(getRestaurantById)
+  // Allow updating images via multipart/form-data as well
+  .put(uploads, authcontroller.protect, updateRestaurant)
+  .delete(authcontroller.protect, deleteRestaurant);
+
+// Assign owner (admin only)
+router
+  .route("/:id/assignOwner")
+  .put(authcontroller.protect, assignOwner);
+
+module.exports = router;

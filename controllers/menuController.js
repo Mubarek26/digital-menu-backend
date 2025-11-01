@@ -8,7 +8,8 @@ exports.getAllMenuItems = catchAsync(async (req, res, next) => {
   const fullUrl = req.protocol + "://" + req.get("host");
   const formattedItems = menuItems.map((item) => ({
     ...item._doc,
-    imageUrl: `${fullUrl}/images/${item.image}`,
+    // images are stored under uploads/foods, express serves the uploads folder at /images
+    imageUrl: `${fullUrl}/images/foods/${item.image}`,
   }));
 
   if (!formattedItems) {
@@ -74,7 +75,7 @@ exports.updateMenuItem = catchAsync(async (req, res, next) => {
   const fullUrl = req.protocol + "://" + req.get("host");
   const updatedMenuItem = {
     ...item._doc,
-    imageUrl: `${fullUrl}/images/${item.image}`,
+    imageUrl: `${fullUrl}/images/foods/${item.image}`,
     };
     
   res.status(200).json({

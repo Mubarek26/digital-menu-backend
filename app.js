@@ -11,6 +11,7 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const cookieParser = require('cookie-parser');
 const userRouter = require('./routes/userRouter'); // Import user routes
 const paymentRoutes = require('./routes/paymentRoutes')
+const restaurantRoues=require('./routes/restaurantRoutes')
 require('./utils/dispatcher.js')
 const settingsRoutes = require('./routes/settingsRoutes');
 
@@ -23,7 +24,8 @@ app.use(cookieParser());
 const cors = require('cors');
 app.use(cors({ origin: true, credentials: true }));
 
-app.use('/images', express.static(path.join(__dirname, 'uploads/foods')));
+// Serve uploaded files (menu images, restaurant images, etc.) from the uploads folder
+app.use('/images', express.static(path.join(__dirname, 'uploads')));
 
 //routes to handle menu items
 
@@ -33,6 +35,7 @@ app.use('/api/v1/users', userRouter);
 app.use('/api/v1/categories', categoryRoutes);
 app.use('/api/v1/payment', paymentRoutes);
 app.use('/api/v1/settings', settingsRoutes);
+app.use('/api/v1/restaurants', restaurantRoues);
 // console.log('app: mounted /api/v1/settings');
 app.all('*', (req, res, next) => {
   const error = new AppError(
