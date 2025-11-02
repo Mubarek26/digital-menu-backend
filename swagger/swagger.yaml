@@ -1,5 +1,1501 @@
 openapi: 3.0.3
 info:
+  title: Menuverse API
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+components: {}
+
+tags:
+  - name: Health
+    description: Basic health and status endpoints
+
+openapi: 3.0.3
+info:
+  title: Menuverse API
+openapi: 3.0.3
+info:
+	title: Menuverse API
+	version: 1.0.0
+
+servers:
+	- url: http://localhost:5000/api/v1
+		description: Local development server
+
+paths:
+	/health:
+		get:
+			summary: Health check
+			responses:
+				'200':
+					description: OK
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									status:
+										type: string
+										example: ok
+
+components: {}
+
+tags:
+	- name: Health
+		description: Basic health and status endpoints
+
+
+  /users/signup:
+    post:
+      summary: Sign up a new user
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserSignup'
+      responses:
+        '200':
+          description: Created and logged in
+        '400':
+          $ref: '#/components/schemas/ErrorResponse'
+
+  /users/login:
+    post:
+      summary: Log in
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Logged in
+        '401':
+          $ref: '#/components/schemas/ErrorResponse'
+
+  /categories:
+    get:
+      summary: Get all categories
+      tags: [Categories]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      categories:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Category'
+
+    post:
+      summary: Create category
+      tags: [Categories]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Created
+        '400':
+          $ref: '#/components/schemas/ErrorResponse'
+
+  /categories/{id}:
+    patch:
+      summary: Update a category
+      tags: [Categories]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Updated
+        '404':
+          $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete a category
+      tags: [Categories]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: No Content
+
+  /orders:
+    post:
+      summary: Create an order
+      tags: [Orders]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items:
+                    type: object
+                orderType:
+                  type: string
+                phoneNumber:
+                  type: string
+                tableNumber:
+                  type: string
+                paymentStatus:
+                  type: string
+                notes:
+                  type: string
+                location:
+                  type: object
+                  properties:
+                    lng:
+                      type: number
+                    lat:
+                      type: number
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      order:
+                        $ref: '#/components/schemas/Order'
+
+    get:
+      summary: Get all orders
+      tags: [Orders]
+      responses:
+        '200':
+          description: OK
+
+  /orders/update/{id}:
+    patch:
+      summary: Update order status
+      tags: [Orders]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+      responses:
+        '200':
+          description: Updated
+
+  /orders/getOrder/{id}:
+    get:
+      summary: Get order by ID
+      tags: [Orders]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+
+  /orders/analytics/total-revenue:
+    get:
+      summary: Get total revenue from completed orders
+      tags: [Orders]
+      responses:
+        '200':
+          description: OK
+
+  /orders/analytics/total-orders:
+    get:
+      summary: Get total number of orders
+      tags: [Orders]
+      responses:
+        '200':
+          description: OK
+
+  /orders/analytics/top-selling-items:
+    get:
+      summary: Get top selling items
+      tags: [Orders]
+      responses:
+        '200':
+          description: OK
+
+  /orders/analytics/active-customers:
+    get:
+      summary: Get active customers (last 30 days)
+      tags: [Orders]
+      responses:
+        '200':
+          description: OK
+
+  /orders/my-orders:
+    get:
+      summary: Get orders assigned to current user
+      tags: [Orders]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+
+  /payment/initializePayment:
+    post:
+      summary: Initialize payment (Chapa)
+      tags: [Payment]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentInit'
+      responses:
+        '200':
+          description: Initialized
+
+  /payment/verifyPayment:
+    post:
+      summary: Verify payment
+      tags: [Payment]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tx_ref:
+                  type: string
+      responses:
+        '200':
+          description: Verified
+
+  /payment/callback:
+    get:
+      summary: Payment callback (webhook)
+      tags: [Payment]
+      responses:
+        '200':
+          description: OK
+    post:
+      summary: Payment callback (webhook)
+      tags: [Payment]
+      responses:
+        '200':
+          description: OK
+
+  /settings:
+    get:
+      summary: Get application settings
+      tags: [Settings]
+      responses:
+        '200':
+          description: OK
+    patch:
+      summary: Update application settings
+      tags: [Settings]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Updated
+    post:
+      summary: Create/update settings
+      tags: [Settings]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+
+  /users/me:
+    get:
+      summary: Get current user profile
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+
+  /users/updateMe:
+    patch:
+      summary: Update current user profile
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Updated
+
+  /users/updatePassword:
+    patch:
+      summary: Update password for current user
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                currentPassword:
+                  type: string
+                password:
+                  type: string
+                passwordConfirm:
+                  type: string
+      responses:
+        '200':
+          description: Password updated
+
+  /users/forgotPassword:
+    post:
+      summary: Request password reset
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+      responses:
+        '200':
+          description: Token sent
+
+  /users/resetPassword/{token}:
+    patch:
+      summary: Reset password with token
+      tags: [Users]
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+                passwordConfirm:
+                  type: string
+      responses:
+        '200':
+          description: Password reset
+
+  /users/logout:
+    get:
+      summary: Logout current user (clears cookie)
+      tags: [Users]
+      responses:
+        '200':
+          description: Logged out
+
+  /users/check-auth:
+    get:
+      summary: Check authentication
+      tags: [Users]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+
+tags:
+  - name: Menu
+    description: Menu item management
+  - name: Restaurants
+    description: Restaurant management
+  - name: Auth
+    description: Authentication
+  - name: Categories
+    description: Category management
+  - name: Orders
+    description: Order management & analytics
+  - name: Payment
+    description: Payment initialization and callbacks
+  - name: Settings
+    description: Application settings
+  - name: Users
+    description: User profile and account
+openapi: 3.0.3
+info:
+	title: Menuverse API
+	description: API documentation for Menuverse (menu, restaurants, orders, users, uploads)
+	version: 1.0.0
+
+servers:
+	- url: http://localhost:5000/api/v1
+		description: Local development server
+
+components:
+	securitySchemes:
+		bearerAuth:
+			type: http
+			scheme: bearer
+			bearerFormat: JWT
+
+	schemas:
+		ErrorResponse:
+			type: object
+			properties:
+				success:
+					type: boolean
+				message:
+					type: string
+				error:
+					type: string
+
+		MenuItem:
+			type: object
+			properties:
+				_id:
+					type: string
+				name:
+					type: string
+				description:
+					type: string
+				price:
+					type: number
+				category:
+					type: string
+				image:
+					type: string
+				imageUrl:
+					type: string
+				isAvailable:
+					type: boolean
+				createdAt:
+					type: string
+					format: date-time
+				updatedAt:
+					type: string
+					format: date-time
+
+		Restaurant:
+			type: object
+			properties:
+				_id:
+					type: string
+				name:
+					type: string
+				description:
+					type: string
+				tags:
+					type: array
+					items:
+						type: string
+				ownerId:
+					type: string
+				contact:
+					type: object
+					properties:
+						email:
+							type: string
+						phone:
+							type: string
+				address:
+					type: object
+					properties:
+						street:
+							type: string
+						city:
+							type: string
+						country:
+							type: string
+						coordinates:
+							type: object
+							properties:
+								type:
+									type: string
+								coordinates:
+									type: array
+									items:
+										type: number
+				images:
+					type: object
+					properties:
+						logo:
+							type: string
+						banner:
+							type: string
+				status:
+					type: string
+					enum: [pending, active, suspended, closed]
+				createdAt:
+					type: string
+					format: date-time
+				updatedAt:
+					type: string
+					format: date-time
+
+		UserSignup:
+			type: object
+			properties:
+				name:
+					type: string
+				email:
+					type: string
+				password:
+					type: string
+				passwordConfirm:
+					type: string
+
+		Category:
+			type: object
+			properties:
+				_id:
+					type: string
+				name:
+					type: string
+				description:
+					type: string
+				itemCount:
+					type: integer
+
+		Order:
+			type: object
+			properties:
+				_id:
+					type: string
+				orderId:
+					type: string
+				items:
+					type: array
+					items:
+						type: object
+				totalPrice:
+					type: number
+				status:
+					type: string
+				createdAt:
+					type: string
+					format: date-time
+
+		PaymentInit:
+			type: object
+			properties:
+				amount:
+					type: number
+				currency:
+					type: string
+				phone_number:
+					type: string
+				orderId:
+					type: string
+
+		Setting:
+			type: object
+			properties:
+				key:
+					type: string
+				value:
+					type: object
+
+		User:
+			type: object
+			properties:
+				_id:
+					type: string
+				name:
+					type: string
+				email:
+					type: string
+				role:
+					type: string
+				phoneNumber:
+					type: string
+
+	parameters:
+		menuId:
+			name: id
+			in: path
+			required: true
+			schema:
+				type: string
+
+paths:
+	/menu:
+		get:
+			summary: List all menu items
+			tags: [Menu]
+			responses:
+				'200':
+					description: OK
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									status:
+										type: string
+									data:
+										type: object
+										properties:
+											menuItems:
+												type: array
+												items:
+													$ref: '#/components/schemas/MenuItem'
+				'500':
+					$ref: '#/components/schemas/ErrorResponse'
+
+		post:
+			summary: Create a menu item (Admin/Manager)
+			tags: [Menu]
+			security:
+				- bearerAuth: []
+			requestBody:
+				required: true
+				content:
+					multipart/form-data:
+						schema:
+							type: object
+							properties:
+								name:
+									type: string
+								description:
+									type: string
+								category:
+									type: string
+								price:
+									type: number
+								available:
+									type: boolean
+								image:
+									type: string
+									format: binary
+			responses:
+				'201':
+					description: Created
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									status:
+										type: string
+									data:
+										type: object
+										properties:
+											menuItem:
+												$ref: '#/components/schemas/MenuItem'
+				'400':
+					$ref: '#/components/schemas/ErrorResponse'
+
+	/menu/{id}:
+		get:
+			summary: Get a menu item
+			tags: [Menu]
+			parameters:
+				- $ref: '#/components/parameters/menuId'
+			responses:
+				'200':
+					description: OK
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									status:
+										type: string
+									data:
+										type: object
+										properties:
+											menuItem:
+												$ref: '#/components/schemas/MenuItem'
+				'404':
+					$ref: '#/components/schemas/ErrorResponse'
+
+		patch:
+			summary: Update a menu item (Admin/Manager)
+			tags: [Menu]
+			security:
+				- bearerAuth: []
+			parameters:
+				- $ref: '#/components/parameters/menuId'
+			requestBody:
+				required: false
+				content:
+					multipart/form-data:
+						schema:
+							type: object
+							properties:
+								name:
+									type: string
+								description:
+									type: string
+								category:
+									type: string
+								price:
+									type: number
+								available:
+									type: boolean
+								image:
+									type: string
+									format: binary
+			responses:
+				'200':
+					description: Updated
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									status:
+										type: string
+									data:
+										type: object
+										properties:
+											menuItem:
+												$ref: '#/components/schemas/MenuItem'
+				'404':
+					$ref: '#/components/schemas/ErrorResponse'
+
+		delete:
+			summary: Delete a menu item (Admin/Manager)
+			tags: [Menu]
+			security:
+				- bearerAuth: []
+			parameters:
+				- $ref: '#/components/parameters/menuId'
+			responses:
+				'204':
+					description: No Content
+				'404':
+					$ref: '#/components/schemas/ErrorResponse'
+
+	/restaurants:
+		get:
+			summary: List restaurants
+			tags: [Restaurants]
+			responses:
+				'200':
+					description: OK
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									success:
+										type: boolean
+									restaurants:
+										type: array
+										items:
+											$ref: '#/components/schemas/Restaurant'
+
+		post:
+			summary: Create a restaurant (authenticated)
+			tags: [Restaurants]
+			security:
+				- bearerAuth: []
+			requestBody:
+				required: true
+				content:
+					multipart/form-data:
+						schema:
+							type: object
+							properties:
+								name:
+									type: string
+								description:
+									type: string
+								tags:
+									type: string
+									description: Comma separated tags
+								contactEmail:
+									type: string
+								contactPhone:
+									type: string
+								street:
+									type: string
+								city:
+									type: string
+								country:
+									type: string
+								longitude:
+									type: number
+								latitude:
+									type: number
+								openingTime:
+									type: string
+								closingTime:
+									type: string
+								isOpen:
+									type: boolean
+								deliveryFee:
+									type: number
+								minOrder:
+									type: number
+								estimatedTime:
+									type: string
+								logo:
+									type: string
+									format: binary
+								banner:
+									type: string
+									format: binary
+								status:
+									type: string
+			responses:
+				'201':
+					description: Created
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									success:
+										type: boolean
+									restaurant:
+										$ref: '#/components/schemas/Restaurant'
+				'400':
+					$ref: '#/components/schemas/ErrorResponse'
+
+	/restaurants/{id}:
+		get:
+			summary: Get a restaurant
+			tags: [Restaurants]
+			parameters:
+				- name: id
+					in: path
+					required: true
+					schema:
+						type: string
+			responses:
+				'200':
+					description: OK
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									success:
+										type: boolean
+									restaurant:
+										$ref: '#/components/schemas/Restaurant'
+				'404':
+					$ref: '#/components/schemas/ErrorResponse'
+
+		put:
+			summary: Update a restaurant (owner or admin)
+			tags: [Restaurants]
+			security:
+				- bearerAuth: []
+			parameters:
+				- name: id
+					in: path
+					required: true
+					schema:
+						type: string
+			requestBody:
+				required: false
+				content:
+					multipart/form-data:
+						schema:
+							type: object
+							properties:
+								name:
+									type: string
+								description:
+									type: string
+								tags:
+									type: string
+								longitude:
+									type: number
+								latitude:
+									type: number
+								logo:
+									type: string
+									format: binary
+								banner:
+									type: string
+									format: binary
+								status:
+									type: string
+			responses:
+				'200':
+					description: Updated
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									success:
+										type: boolean
+									restaurant:
+										$ref: '#/components/schemas/Restaurant'
+				'404':
+					$ref: '#/components/schemas/ErrorResponse'
+
+		delete:
+			summary: Delete a restaurant (admin only)
+			tags: [Restaurants]
+			security:
+				- bearerAuth: []
+			parameters:
+				- name: id
+					in: path
+					required: true
+					schema:
+						type: string
+			responses:
+				'200':
+					description: Deleted
+				'404':
+					$ref: '#/components/schemas/ErrorResponse'
+
+	/users/signup:
+		post:
+			summary: Sign up a new user
+			tags: [Auth]
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							$ref: '#/components/schemas/UserSignup'
+			responses:
+				'200':
+					description: Created and logged in
+				'400':
+					$ref: '#/components/schemas/ErrorResponse'
+
+	/users/login:
+		post:
+			summary: Log in
+			tags: [Auth]
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								email:
+									type: string
+								password:
+									type: string
+			responses:
+				'200':
+					description: Logged in
+				'401':
+					$ref: '#/components/schemas/ErrorResponse'
+
+	/categories:
+		get:
+			summary: Get all categories
+			tags: [Categories]
+			responses:
+				'200':
+					description: OK
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									status:
+										type: string
+									data:
+										type: object
+										properties:
+											categories:
+												type: array
+												items:
+													$ref: '#/components/schemas/Category'
+
+		post:
+			summary: Create category
+			tags: [Categories]
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								name:
+									type: string
+								description:
+									type: string
+			responses:
+				'201':
+					description: Created
+				'400':
+					$ref: '#/components/schemas/ErrorResponse'
+
+	/categories/{id}:
+		patch:
+			summary: Update a category
+			tags: [Categories]
+			parameters:
+				- name: id
+					in: path
+					required: true
+					schema:
+						type: string
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								name:
+									type: string
+								description:
+									type: string
+			responses:
+				'200':
+					description: Updated
+				'404':
+					$ref: '#/components/schemas/ErrorResponse'
+
+		delete:
+			summary: Delete a category
+			tags: [Categories]
+			parameters:
+				- name: id
+					in: path
+					required: true
+					schema:
+						type: string
+			responses:
+				'204':
+					description: No Content
+
+	/orders:
+		post:
+			summary: Create an order
+			tags: [Orders]
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								items:
+									type: array
+									items:
+										type: object
+								orderType:
+									type: string
+								phoneNumber:
+									type: string
+								tableNumber:
+									type: string
+								paymentStatus:
+									type: string
+								notes:
+									type: string
+								location:
+									type: object
+									properties:
+										lng:
+											type: number
+										lat:
+											type: number
+			responses:
+				'201':
+					description: Created
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									status:
+										type: string
+									data:
+										type: object
+										properties:
+											order:
+												$ref: '#/components/schemas/Order'
+
+		get:
+			summary: Get all orders
+			tags: [Orders]
+			responses:
+				'200':
+					description: OK
+
+	/orders/update/{id}:
+		patch:
+			summary: Update order status
+			tags: [Orders]
+			parameters:
+				- name: id
+					in: path
+					required: true
+					schema:
+						type: string
+			requestBody:
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								status:
+									type: string
+			responses:
+				'200':
+					description: Updated
+
+	/orders/getOrder/{id}:
+		get:
+			summary: Get order by ID
+			tags: [Orders]
+			parameters:
+				- name: id
+					in: path
+					required: true
+					schema:
+						type: string
+			responses:
+				'200':
+					description: OK
+
+	/orders/analytics/total-revenue:
+		get:
+			summary: Get total revenue from completed orders
+			tags: [Orders]
+			responses:
+				'200':
+					description: OK
+
+	/orders/analytics/total-orders:
+		get:
+			summary: Get total number of orders
+			tags: [Orders]
+			responses:
+				'200':
+					description: OK
+
+	/orders/analytics/top-selling-items:
+		get:
+			summary: Get top selling items
+			tags: [Orders]
+			responses:
+				'200':
+					description: OK
+
+	/orders/analytics/active-customers:
+		get:
+			summary: Get active customers (last 30 days)
+			tags: [Orders]
+			responses:
+				'200':
+					description: OK
+
+	/orders/my-orders:
+		get:
+			summary: Get orders assigned to current user
+			tags: [Orders]
+			security:
+				- bearerAuth: []
+			responses:
+				'200':
+					description: OK
+
+	/payment/initializePayment:
+		post:
+			summary: Initialize payment (Chapa)
+			tags: [Payment]
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							$ref: '#/components/schemas/PaymentInit'
+			responses:
+				'200':
+					description: Initialized
+
+	/payment/verifyPayment:
+		post:
+			summary: Verify payment
+			tags: [Payment]
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								tx_ref:
+									type: string
+			responses:
+				'200':
+					description: Verified
+
+	/payment/callback:
+		get:
+			summary: Payment callback (webhook)
+			tags: [Payment]
+			responses:
+				'200':
+					description: OK
+		post:
+			summary: Payment callback (webhook)
+			tags: [Payment]
+			responses:
+				'200':
+					description: OK
+
+	/settings:
+		get:
+			summary: Get application settings
+			tags: [Settings]
+			responses:
+				'200':
+					description: OK
+		patch:
+			summary: Update application settings
+			tags: [Settings]
+			requestBody:
+				content:
+					application/json:
+						schema:
+							type: object
+			responses:
+				'200':
+					description: Updated
+		post:
+			summary: Create/update settings
+			tags: [Settings]
+			requestBody:
+				content:
+					application/json:
+						schema:
+							type: object
+			responses:
+				'200':
+					description: OK
+
+	/users/me:
+		get:
+			summary: Get current user profile
+			tags: [Users]
+			security:
+				- bearerAuth: []
+			responses:
+				'200':
+					description: OK
+
+	/users/updateMe:
+		patch:
+			summary: Update current user profile
+			tags: [Users]
+			security:
+				- bearerAuth: []
+			requestBody:
+				content:
+					application/json:
+						schema:
+							type: object
+			responses:
+				'200':
+					description: Updated
+
+	/users/updatePassword:
+		patch:
+			summary: Update password for current user
+			tags: [Users]
+			security:
+				- bearerAuth: []
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								currentPassword:
+									type: string
+								password:
+									type: string
+								passwordConfirm:
+									type: string
+			responses:
+				'200':
+					description: Password updated
+
+	/users/forgotPassword:
+		post:
+			summary: Request password reset
+			tags: [Users]
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								email:
+									type: string
+			responses:
+				'200':
+					description: Token sent
+
+	/users/resetPassword/{token}:
+		patch:
+			summary: Reset password with token
+			tags: [Users]
+			parameters:
+				- name: token
+					in: path
+					required: true
+					schema:
+						type: string
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								password:
+									type: string
+								passwordConfirm:
+									type: string
+			responses:
+				'200':
+					description: Password reset
+
+	/users/logout:
+		get:
+			summary: Logout current user (clears cookie)
+			tags: [Users]
+			responses:
+				'200':
+					description: Logged out
+
+	/users/check-auth:
+		get:
+			summary: Check authentication
+			tags: [Users]
+			security:
+				- bearerAuth: []
+			responses:
+				'200':
+					description: OK
+
+tags:
+	- name: Menu
+		description: Menu item management
+	- name: Restaurants
+		description: Restaurant management
+	- name: Auth
+		description: Authentication
+	- name: Categories
+		description: Category management
+	- name: Orders
+		description: Order management & analytics
+	- name: Payment
+		description: Payment initialization and callbacks
+	- name: Settings
+		description: Application settings
+	- name: Users
+		description: User profile and account
+openapi: 3.0.3
+info:
 	title: Menuverse API
 	description: API documentation for Menuverse (menu, restaurants, orders, users, uploads)
 	version: 1.0.0
