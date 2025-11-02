@@ -1,0 +1,30 @@
+openapi: 3.0.3
+info:
+  title: Menuverse API (clean)
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:5000/api/v1
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+components: {}
+
+tags:
+  - name: Health
+    description: Basic health and status endpoints

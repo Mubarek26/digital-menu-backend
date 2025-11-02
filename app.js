@@ -12,11 +12,12 @@ const cookieParser = require('cookie-parser');
 const userRouter = require('./routes/userRouter'); // Import user routes
 const paymentRoutes = require('./routes/paymentRoutes')
 const restaurantRoues=require('./routes/restaurantRoutes')
-
+const setupSwagger = require('./swagger/swagger');
 const settingsRoutes = require('./routes/settingsRoutes');
 
 dotenv.config(); // Load environment variables
 const app = express();
+setupSwagger(app);
 // app.use(cors())
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
