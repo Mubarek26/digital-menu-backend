@@ -6,6 +6,7 @@ info:
 
 servers:
   - url: http://localhost:5000/api/v1
+  - url: https://digital-menu-backend-73fs.onrender.com/api/v1
     description: Local development server
 
 components:
