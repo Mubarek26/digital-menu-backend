@@ -95,10 +95,6 @@ const getAllRestaurants = async (req, res) => {
  */
 const getRestaurantById = async (req, res) => {
   try {
-    const mongoose = require('mongoose');
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ success: false, error: 'Invalid restaurant ID' });
-    }
     const restaurant = await Restaurant.findById(req.params.id).populate("ownerId", "name email");
     if (!restaurant)
       return res.status(404).json({ success: false, message: "Restaurant not found" });
@@ -123,10 +119,6 @@ const assignOwner = async (req, res) => {
       return res.status(400).json({ success: false, message: "ownerId is required" });
     }
 
-    const mongoose = require('mongoose');
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ success: false, error: 'Invalid restaurant ID' });
-    }
     const restaurant = await Restaurant.findById(req.params.id);
     if (!restaurant) {
       return res.status(404).json({ success: false, message: "Restaurant not found" });
@@ -155,10 +147,6 @@ const assignOwner = async (req, res) => {
  */
 const updateRestaurant = async (req, res) => {
   try {
-    const mongoose = require('mongoose');
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ success: false, error: 'Invalid restaurant ID' });
-    }
     const restaurant = await Restaurant.findById(req.params.id);
     if (!restaurant)
       return res.status(404).json({ success: false, message: "Restaurant not found" });
@@ -241,17 +229,13 @@ const updateRestaurant = async (req, res) => {
  */
 const deleteRestaurant = async (req, res) => {
   try {
-    if (req.user.role !== "Manager") {
+    if (req.user.role !== "superadmin") {
       return res.status(403).json({
         success: false,
         message: "Only admins can delete restaurants",
       });
     }
 
-    const mongoose = require('mongoose');
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ success: false, error: 'Invalid restaurant ID' });
-    }
     const restaurant = await Restaurant.findByIdAndDelete(req.params.id);
     if (!restaurant)
       return res.status(404).json({ success: false, message: "Restaurant not found" });
@@ -265,22 +249,6 @@ const deleteRestaurant = async (req, res) => {
   }
 };
 
-/**
- * 🧑‍💼 GET restaurants for authenticated owner
- */
-const getMyRestaurants = async (req, res) => {
-  try {
-    // Only allow owners
-    if (!req.user || req.user.role !== "Owner") {
-      return res.status(403).json({ success: false, message: "Access denied" });
-    }
-    const restaurants = await Restaurant.find({ ownerId: req.user._id }).populate("ownerId", "name email");
-    res.status(200).json({ success: true, restaurants });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-};
-
 module.exports = {
   createRestaurant,
   getAllRestaurants,
@@ -288,5 +256,4 @@ module.exports = {
   assignOwner,
   updateRestaurant,
   deleteRestaurant,
-  getMyRestaurants,
 };

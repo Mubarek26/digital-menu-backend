@@ -22,7 +22,6 @@ router
   .get(getAllRestaurants);              // Public or authenticated
 
 // Get, update, delete specific restaurant
-router.get("/my", authcontroller.protect, require("../controllers/restaurantController").getMyRestaurants);
 router
   .route("/:id")
   .get(getRestaurantById)
@@ -30,10 +29,9 @@ router
   .put(uploads, authcontroller.protect, updateRestaurant)
   .delete(authcontroller.protect, deleteRestaurant);
 
-
-// Get restaurants for authenticated owner
-
 // Assign owner (admin only)
-router.route("/:id/assignOwner").put(authcontroller.protect, assignOwner);
+router
+  .route("/:id/assignOwner")
+  .put(authcontroller.protect, assignOwner);
 
 module.exports = router;
