@@ -4,6 +4,7 @@ const MenuItem = require("../models/MenuItem");
 const Restaurant = require("../models/restaurants");
 const fs = require("fs");
 const path = require('path');
+const exp = require("constants");
 exports.getAllMenuItems = catchAsync(async (req, res, next) => {
   const menuItems = await MenuItem.find(); // Fetch all menu items from the database
   const fullUrl = req.protocol + "://" + req.get("host");
@@ -26,51 +27,92 @@ exports.getAllMenuItems = catchAsync(async (req, res, next) => {
   });
 });
 
-
-exports.getAllMenuItemsByRestaurant = catchAsync(async (req, res, next) => {
-  let filter = {};
-
-  // 🧩 Only apply filter if there is a user and role is "Owner"
-  if (req.user && req.user.role === "Owner") {
-    const restaurant = await Restaurant.findOne({ ownerId: req.user._id });
-
-    if (!restaurant) {
-      return next(new appError("No restaurant found for this owner", 404));
-    }
-
-    filter.restaurantId = restaurant._id;
+exports.getMenuItemsByRestaurantId = catchAsync(async (req, res, next) => {
+  // restaurantId comes from the route param: /getrestaurant/:restaurantId
+  const restaurantId = req.params.restaurantId;
+  if (!restaurantId) {
+    return next(new appError('restaurantId is required', 400));
   }
 
-  // 🍔 Fetch menu items (filtered for owners, all for others/guests)
-  const menuItems = await MenuItem.find(filter).populate("restaurantId", "name");
+  // Use find() to get all items for the restaurant (findOne returns a single doc)
+  const menuItems = await MenuItem.find({ restaurantId });
 
   if (!menuItems || menuItems.length === 0) {
-    return next(new appError("No menu items found", 404));
+    return res.status(200).json({
+      status: 'success',
+      message: 'No menu items found for this restaurant',
+      data: { menuItems: [] },
+    });
   }
 
-  const fullUrl = `${req.protocol}://${req.get("host")}`;
-
-  // 🖼️ Add proper image URLs
-  const formattedItems = menuItems.map((item) => ({
+  const fullUrl = `${req.protocol}://${req.get('host')}`;
+  const formattedItems = menuItems.map(item => ({
     ...item._doc,
     imageUrl: item.image ? `${fullUrl}/images/foods/${item.image}` : null,
   }));
 
-  // 📨 Send JSON response
   res.status(200).json({
-    status: "success",
-    message:
-      req.user && req.user.role === "Owner"
-        ? "Your restaurant’s menu items retrieved successfully"
-        : "All menu items retrieved successfully",
+    status: 'success',
+    message: 'Menu items for the restaurant retrieved successfully',
     data: { menuItems: formattedItems },
   });
 });
 
 
+
+exports.getAllMenuItemsByRestaurant = catchAsync(async (req, res, next) => {
+  const role = String(req.user?.role || '').toLowerCase();
+  let filter = {};
+
+  if (role === 'owner') {
+    const restaurant = await Restaurant.findOne({ ownerId: req.user._id });
+    if (!restaurant) {
+      return res.status(200).json({
+        status: 'success',
+        message: 'No restaurant found for this owner',
+        data: { menuItems: [] },
+      });
+    }
+    filter.restaurantId = restaurant._id;
+  }
+
+  const menuItems = await MenuItem.find(filter).populate('restaurantId', 'name');
+
+  if (!menuItems.length) {
+    return res.status(200).json({
+      status: 'success',
+      message: 'No menu items found',
+      data: { menuItems: [] },
+    });
+  }
+  
+
+  const fullUrl = `${req.protocol}://${req.get('host')}`;
+  const formattedItems = menuItems.map(item => ({
+    ...item._doc,
+    imageUrl: item.image ? `${fullUrl}/images/foods/${item.image}` : null,
+  }));
+
+  res.status(200).json({
+    status: 'success',
+    message:
+      role === 'owner'
+        ? 'Your restaurant’s menu items retrieved successfully'
+        : 'All menu items retrieved successfully',
+    data: { menuItems: formattedItems },
+  });
+});
+
+
+
 exports.createMenuItem = catchAsync(async (req, res, next) => {
   const { name, price, description, category,restaurantId } = req.body;
   const imagePath = req.file ? req.file.filename : null;
+  // Fail early with a helpful error if restaurantId is missing — avoids Mongoose validation error
+  if (!restaurantId) {
+    return next(new appError('restaurantId is required to create a menu item', 400));
+  }
+
   const newMenuItem = await MenuItem.create({
     name,
     price,

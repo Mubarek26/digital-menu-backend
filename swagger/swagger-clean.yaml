@@ -430,6 +430,38 @@ paths:
         '404':
           $ref: '#/components/schemas/ErrorResponse'
 
+  /menu/getrestaurantMenu/{restaurantId}:
+    get:
+      summary: Get menu items by restaurant ID (public)
+      tags: [Menu]
+      parameters:
+        - name: restaurantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      menuItems:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MenuItem'
+        '404':
+          $ref: '#/components/schemas/ErrorResponse'
+
   /restaurants:
     get:
       summary: List restaurants
@@ -515,6 +547,29 @@ paths:
                   restaurant:
                     $ref: '#/components/schemas/Restaurant'
         '400':
+          $ref: '#/components/schemas/ErrorResponse'
+
+  /restaurants/my:
+    get:
+      summary: Get restaurants for the authenticated owner
+      tags: [Restaurants]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  restaurants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Restaurant'
+        '401':
           $ref: '#/components/schemas/ErrorResponse'
 
   /restaurants/{id}:

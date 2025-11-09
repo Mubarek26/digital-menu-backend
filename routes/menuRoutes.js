@@ -21,7 +21,8 @@ router
     menuController.createMenuItem
   ); // Create a new menu item
 
-
+ 
+  
 router
   .route("/:id")
   .get(menuController.getMenuItem) // Get a specific menu item by ID
@@ -36,5 +37,9 @@ router
     authController.restrictTo("Admin", "Manager",'Owner'),
     menuController.deleteMenuItem
   ); // Delete a menu item by ID
+
+   router
+  .route("/getrestaurantMenu/:restaurantId")
+  .get(menuController.getMenuItemsByRestaurantId); // Get menu items by restaurant ID
 
 module.exports = router; // Export the router for use in app.js
