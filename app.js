@@ -31,6 +31,9 @@ app.use('/images', express.static(path.join(__dirname, 'uploads')));
 //routes to handle menu items
 
 app.use('/api/v1/menu', menuRoutes); // Import and use menu routes
+// Alias: also mount menu routes under /api/v1/restaurants so older clients
+// that call /api/v1/restaurants/getrestaurant/:id will continue to work.
+app.use('/api/v1/restaurants', menuRoutes);
 app.use('/api/v1/order', orderRoutes); // Import and use menu routes
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/categories', categoryRoutes);
