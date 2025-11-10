@@ -215,6 +215,10 @@ tags:
                       type: number
                     lat:
                       type: number
+							 restaurantId:
+								 type: string
+							 totalPrice:
+								 type: number
       responses:
         '201':
           description: Created
@@ -225,6 +229,10 @@ tags:
                 properties:
                   status:
                     type: string
+								 example: success
+									message:
+										type: string
+										example: Order created successfully
                   data:
                     type: object
                     properties:

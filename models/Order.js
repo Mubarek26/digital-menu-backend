@@ -62,6 +62,11 @@ const orderSchema = new mongoose.Schema({
     default: null, // ID of the employee assigned to this order
     ref: "User", // Assuming you have a User model for employees
   },
+  restaurantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Restaurant",
+    required: true,
+  },
   
   location: {
     type: {

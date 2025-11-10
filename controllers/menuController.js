@@ -59,7 +59,6 @@ exports.getMenuItemsByRestaurantId = catchAsync(async (req, res, next) => {
 });
 
 
-
 exports.getAllMenuItemsByRestaurant = catchAsync(async (req, res, next) => {
   const role = String(req.user?.role || '').toLowerCase();
   let filter = {};

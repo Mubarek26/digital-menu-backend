@@ -834,29 +834,47 @@ paths:
               type: object
               required: [orderType, phoneNumber, items]
               properties:
-                orderType:
-                  type: string
-                  example: Dine-In
-                phoneNumber:
-                  type: string
-                  example: "0912345678"
-                tableNumber:
-                  type: integer
-                  example: 5
-                notes:
-                  type: string
-                items:
-                  type: array
-                  items:
+                  orderType:
+                    type: string
+                    example: Dine-In
+                  phoneNumber:
+                    type: string
+                    example: "0912345678"
+                  tableNumber:
+                    type: string
+                    example: "5"
+                  paymentStatus:
+                    type: string
+                    example: paid
+                  notes:
+                    type: string
+                  location:
                     type: object
-                    required: [_id, quantity]
                     properties:
-                      _id:
-                        type: string
-                        example: "689ce084cf0096df9586beb2"
-                      quantity:
-                        type: integer
-                        example: 2
+                      lng:
+                        type: number
+                        example: 38.75
+                      lat:
+                        type: number
+                        example: 9.03
+                  restaurantId:
+                    type: string
+                    example: "rest123"
+                  totalPrice:
+                    type: number
+                    example: 250.5
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [_id, quantity]
+                      properties:
+                        _id:
+                          type: string
+                          example: "689ce084cf0096df9586beb2"
+                        quantity:
+                          type: integer
+                          example: 2
       responses:
         '201':
           description: Created
@@ -867,6 +885,10 @@ paths:
                 properties:
                   status:
                     type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Order created successfully
                   data:
                     type: object
                     properties:
