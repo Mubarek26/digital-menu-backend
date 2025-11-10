@@ -31,15 +31,19 @@ app.use('/images', express.static(path.join(__dirname, 'uploads')));
 //routes to handle menu items
 
 app.use('/api/v1/menu', menuRoutes); // Import and use menu routes
-// Alias: also mount menu routes under /api/v1/restaurants so older clients
-// that call /api/v1/restaurants/getrestaurant/:id will continue to work.
+// Mount restaurant routes before the menu alias so specific restaurant paths
+// (e.g. /api/v1/restaurants/my) are handled by restaurantRoues instead of
+// being captured by menuRoutes' dynamic '/:id' route.
+app.use('/api/v1/restaurants', restaurantRoues);
+// Alias: also mount menu routes under /api/v1/restaurants (kept after the
+// restaurant routes to avoid route collisions with explicit restaurant paths)
 app.use('/api/v1/restaurants', menuRoutes);
 app.use('/api/v1/order', orderRoutes); // Import and use menu routes
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/categories', categoryRoutes);
 app.use('/api/v1/payment', paymentRoutes);
 app.use('/api/v1/settings', settingsRoutes);
-app.use('/api/v1/restaurants', restaurantRoues);
+// (restaurant routes already mounted above)
 // console.log('app: mounted /api/v1/settings');
 app.all('*', (req, res, next) => {
   const error = new AppError(

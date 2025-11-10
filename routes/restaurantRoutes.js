@@ -8,6 +8,7 @@ const {
   assignOwner,
   updateRestaurant,
   deleteRestaurant,
+  getMyRestaurants,
 } = require("../controllers/restaurantController");
 
 const authcontroller = require("../controllers/authController");
@@ -22,6 +23,8 @@ router
   .get(getAllRestaurants);              // Public or authenticated
 
 // Get, update, delete specific restaurant
+router.route("/my")
+.get(authcontroller.protect,getMyRestaurants);
 router
   .route("/:id")
   .get(getRestaurantById)
@@ -29,9 +32,10 @@ router
   .put(uploads, authcontroller.protect, updateRestaurant)
   .delete(authcontroller.protect, deleteRestaurant);
 
+
+// Get restaurants for authenticated owner
+
 // Assign owner (admin only)
-router
-  .route("/:id/assignOwner")
-  .put(authcontroller.protect, assignOwner);
+router.route("/:id/assignOwner").put(authcontroller.protect, assignOwner);
 
 module.exports = router;
