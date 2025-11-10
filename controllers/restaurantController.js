@@ -105,6 +105,21 @@ const getRestaurantById = async (req, res) => {
   }
 };
 
+
+// get my restaurants for owner
+// get my restaurants for owner
+const getMyRestaurants = async (req, res) => {
+  try {
+    if (req.user.role !== "Owner") {
+      return res.status(403).json({ success: false, message: "Only owners can access their restaurants" });
+    }
+    const restaurants = await Restaurant.find({ ownerId: req.user._id });
+    res.status(200).json({ success: true, restaurants });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
 /**
  * 👑 ASSIGN owner to a restaurant (admin only)
  */
@@ -256,4 +271,6 @@ module.exports = {
   assignOwner,
   updateRestaurant,
   deleteRestaurant,
+  getMyRestaurants
 };
+
