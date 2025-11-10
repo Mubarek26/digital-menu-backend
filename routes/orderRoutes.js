@@ -6,7 +6,7 @@ const authController = require("../controllers/authController");
 router
   .route("/")
   .post(orderController.createOrder) // Create a new order
-  .get(orderController.getAllOrders); // Get all orders
+  .get(authController.protect,orderController.getAllOrders); // Get all orders
 
 router
   .route("/update/:id")
@@ -16,10 +16,10 @@ router
   .get(orderController.getOrderById); // Get an order by ID
 
 router
-  .route("/analytics/total-revenue")
-  .get(orderController.getAllTotalRevenue); // Get total revenue from completed orders
+  .route("/analytics/total-revenue/:restaurantId")
+  .get(authController.protect,orderController.getAllTotalRevenue); // Get total revenue from completed orders
 
-router.route("/analytics/total-orders").get(orderController.getTotalOrders); // Get total revenue from completed orders
+router.route("/analytics/total-orders/:restaurantId").get(orderController.getTotalOrders); // Get total revenue from completed orders
 
 router
   .route("/analytics/top-selling-items")
