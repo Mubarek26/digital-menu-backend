@@ -12,6 +12,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     paymentStatus,
     notes,
     location,
+    restaurantId,
   } = req.body;
   if (!items || items.length === 0) {
     return res.status(400).json({ error: "No items provided in the order." });
@@ -45,6 +46,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
       name: menuItem.name,
       paymentStatus: paymentStatus, // Assuming payment status is passed in the request body
       notes: notes || "", // Optional customer note
+      restaurantId: menuItem.restaurantId, // Associate order with the restaurant
     });
   });
   // generate a unique order id
@@ -64,6 +66,8 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     tableNumber,
     notes,
     location: geoLocation, // Optional delivery location
+    // If restaurantId was not provided by the client, derive it from the first menu item
+    restaurantId: restaurantId || (menuItems && menuItems.length > 0 ? menuItems[0].restaurantId : undefined),
     // add more fields like userId, status, timestamp if needed
   });
   // Push job to BullMQ queue for employee assignment
