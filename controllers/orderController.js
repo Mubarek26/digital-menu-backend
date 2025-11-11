@@ -187,6 +187,39 @@ exports.getOrderById = catchAsync(async (req, res, next) => {
   });
 });
 
+// sets the order to confirmed
+exports.confirmOrder = catchAsync(async (req, res, next) => {
+  // Support both MongoDB _id and the generated orderId field in the URL param.
+  // The route uses :orderId, but that value might be the custom orderId string
+  // (e.g. ORD-123) or a Mongo ObjectId. Try to find by _id first (if valid),
+  // otherwise look up by the `orderId` field.
+  const param = req.params.orderId || req.params.id;
+  let order = null;
+
+  if (param && mongoose.Types.ObjectId.isValid(param)) {
+    order = await Order.findById(param);
+  }
+
+  if (!order && param) {
+    // try matching the custom orderId field
+    order = await Order.findOne({ orderId: String(param).trim() });
+  }
+
+  if (!order) {
+    throw new AppError("Order not found", 404);
+  }
+
+  order.restaurantConfirmed = true;
+  order.updatedAt = Date.now();
+  await order.save({ validateBeforeSave: false });
+  res.status(200).json({
+    status: "success",
+    message: "Order confirmed successfully",
+    data: {
+      order, // This should be replaced with actual data from the database
+    },
+  });
+});
 
 // Update order status
 exports.updateOrderStatus = catchAsync(async (req, res, next) => {
@@ -198,7 +231,7 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
   }
   order.status = status;
   order.updatedAt = Date.now();
-  await order.save();
+  await order.save({validateBeforeSave: false});
   res.status(200).json({
     status: "success",
     message: "Order status updated successfully",

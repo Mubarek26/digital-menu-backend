@@ -9,13 +9,17 @@ const ROLE_MAP = {
   "Delivery": "Delivery",
 };
 
+// Map to keep track of timers for each order
+const orderTimers = new Map();
+
 // Runs every minute
 cron.schedule("* * * * *", async () => {
   console.log("Checking for unassigned orders...");
 
-  const unassignedOrders = await Order.find({ assignedEmployeeId: null });
+  const unassignedOrders = await Order.find({ assignedEmployeeId: null, status: "pending", restaurantConfirmed: true });
 
   for (const order of unassignedOrders) {
+    // Get available employee
     const employee = await User.findOne({ 
         role: ROLE_MAP[order.orderType], 
         status: "available" 
@@ -23,14 +27,60 @@ cron.schedule("* * * * *", async () => {
       .sort({ last_assigned_at: 1 });
 
     if (employee) {
-      await Order.updateOne(
-        { _id: order._id },
-        { $set: { assignedEmployeeId: employee._id } }
-      );
+      // Assign order
+      order.assignedEmployeeId = employee._id;
+      order.status = "pending"; // ensure status is pending
+      await order.save();
+
       employee.last_assigned_at = new Date();
-      await employee.save({validateBeforeSave:false});
+      await employee.save({ validateBeforeSave: false });
 
       console.log(`Assigned order ${order._id} to employee ${employee._id}`);
+
+      // Start 1-minute acceptance timer
+      if (orderTimers.has(order._id.toString())) {
+        clearTimeout(orderTimers.get(order._id.toString())); // clear previous timer if any
+      }
+
+      const timer = setTimeout(async () => {
+        const currentOrder = await Order.findById(order._id);
+
+        // If still pending after 1 minute, unassign and mark as unaccepted
+        if (currentOrder.status === "pending") {
+          console.log(`Employee ${employee._id} did not accept order ${order._id}. Reassigning...`);
+          currentOrder.assignedEmployeeId = null; // make order available again
+          await currentOrder.save();
+
+          orderTimers.delete(order._id.toString()); // remove timer
+          // Immediately attempt to reassign to another available employee
+          const nextEmployee = await User.findOne({ 
+            role: ROLE_MAP[currentOrder.orderType], 
+            status: "available",
+            _id: { $ne: employee._id } // exclude previous employee
+          }).sort({ last_assigned_at: 1 });
+
+          if (nextEmployee) {
+            currentOrder.assignedEmployeeId = nextEmployee._id;
+            await currentOrder.save();
+            nextEmployee.last_assigned_at = new Date();
+            await nextEmployee.save({ validateBeforeSave: false });
+            console.log(`Immediately reassigned order ${currentOrder._id} to employee ${nextEmployee._id}`);
+            // Optionally, start a new timer for the next employee
+            const newTimer = setTimeout(async () => {
+              const recheckOrder = await Order.findById(currentOrder._id);
+              if (recheckOrder.status === "pending") {
+                recheckOrder.assignedEmployeeId = null;
+                await recheckOrder.save();
+                orderTimers.delete(currentOrder._id.toString());
+                console.log(`Second employee did not accept order ${currentOrder._id}. Order remains unassigned.`);
+              }
+            }, 60 * 1000);
+            orderTimers.set(currentOrder._id.toString(), newTimer);
+          }
+        }
+      }, 60 * 1000); // 1 minute
+
+      orderTimers.set(order._id.toString(), timer);
     }
   }
 });
