@@ -27,7 +27,7 @@ app.use(cors({ origin: true, credentials: true }));
 
 // Serve uploaded files (menu images, restaurant images, etc.) from the uploads folder
 app.use('/images', express.static(path.join(__dirname, 'uploads')));
-
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 //routes to handle menu items
 
 app.use('/api/v1/menu', menuRoutes); // Import and use menu routes
