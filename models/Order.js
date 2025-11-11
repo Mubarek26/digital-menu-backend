@@ -31,7 +31,7 @@ const orderSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ["pending", "preparing", "ready", "completed", "cancelled"],
+    enum: ["pending", "preparing", "ready", "completed","accepted", "cancelled"],
     default: "pending",
   },
   phoneNumber: {
@@ -66,6 +66,10 @@ const orderSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Restaurant",
     required: true,
+  },
+  restaurantConfirmed: {
+    type: Boolean,
+    default: false,
   },
   
   location: {

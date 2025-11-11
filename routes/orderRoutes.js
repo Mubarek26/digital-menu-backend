@@ -8,6 +8,8 @@ router
   .post(orderController.createOrder) // Create a new order
   .get(authController.protect,orderController.getAllOrders); // Get all orders
 
+
+  router.route("/confirmOrder/:orderId").patch(orderController.confirmOrder); // Restaurant confirms the order
 router
   .route("/update/:id")
   .patch(orderController.updateOrderStatus);
