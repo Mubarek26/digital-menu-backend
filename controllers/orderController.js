@@ -15,6 +15,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     notes,
     location,
     restaurantId,
+    address,
   } = req.body;
   if (!items || items.length === 0) {
     return res.status(400).json({ error: "No items provided in the order." });
@@ -60,6 +61,7 @@ const restaurantIds = [...new Set(menuItems.map((item) => item.restaurantId.toSt
       paymentStatus: paymentStatus, // Assuming payment status is passed in the request body
       notes: notes || "", // Optional customer note
       restaurantId: menuItem.restaurantId, // Associate order with the restaurant
+      address: address || "", // Optional address for delivery
     });
   });
   // generate a unique order id
@@ -81,6 +83,7 @@ const restaurantIds = [...new Set(menuItems.map((item) => item.restaurantId.toSt
     location: geoLocation, // Optional delivery location
     // If restaurantId was not provided by the client, derive it from the first menu item
     restaurantId: restaurantId || restaurantIds[0],
+    address,
     // add more fields like userId, status, timestamp if needed
   });
 

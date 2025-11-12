@@ -71,6 +71,10 @@ const orderSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+    address: {
+      type: String,
+      required: true,
+    },
   
   location: {
     type: {
@@ -78,6 +82,7 @@ const orderSchema = new mongoose.Schema({
       enum: ["Point"],
       // required: true,
     },
+  
     coordinates: {
       type: [Number],
       // required: true,

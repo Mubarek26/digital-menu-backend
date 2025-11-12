@@ -860,6 +860,8 @@ paths:
                   restaurantId:
                     type: string
                     example: "rest123"
+                  address:
+                    type: string
                   totalPrice:
                     type: number
                     example: 250.5
