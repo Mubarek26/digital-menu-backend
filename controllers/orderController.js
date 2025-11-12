@@ -25,6 +25,17 @@ exports.createOrder = catchAsync(async (req, res, next) => {
   const ids = items.map((item) => item._id);
   const menuItems = await MenuItem.find({ _id: { $in: ids } }); 
 
+  // check if the restaurant existed
+  if (restaurantId) {
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(400).json({ 
+        status: "fail",
+        message: "Restaurant not found with the provided restaurantId.",
+      });
+    }
+  }
+  
   // check if all the items belong to the same restaurant
 const restaurantIds = [...new Set(menuItems.map((item) => item.restaurantId.toString()))];
   if (restaurantIds.length > 1) {
@@ -65,7 +76,7 @@ const restaurantIds = [...new Set(menuItems.map((item) => item.restaurantId.toSt
     });
   });
   // generate a unique order id
-  const orderId = await generateOrderId();
+  const orderId =  generateOrderId();
    const geoLocation = location
       ? {
           type: "Point",
