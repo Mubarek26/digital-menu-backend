@@ -73,7 +73,7 @@ const orderSchema = new mongoose.Schema({
   },
     address: {
       type: String,
-      required: true,
+      // required: true,
     },
   
   location: {

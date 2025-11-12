@@ -340,7 +340,10 @@ exports.getTotalOrders = catchAsync(async (req, res, next) => {
 
 exports.getMyOrders = catchAsync(async (req, res, next) => {
   const userId = req.user?._id;
-  const orders = await Order.find({ assignedEmployeeId: userId });
+  const orders = await Order.find({ assignedEmployeeId: userId })
+  .populate({path: 'items.menuItem', select: 'price'});
+  // get the price of each order
+
   res.status(200).json({
     status: "success",
     data: { orders },
