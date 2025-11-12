@@ -19,9 +19,20 @@ exports.createOrder = catchAsync(async (req, res, next) => {
   if (!items || items.length === 0) {
     return res.status(400).json({ error: "No items provided in the order." });
   }
+
   // extract the menu item IDs and quantities from the request body
   const ids = items.map((item) => item._id);
-  const menuItems = await MenuItem.find({ _id: { $in: ids } }); //
+  const menuItems = await MenuItem.find({ _id: { $in: ids } }); 
+
+  // check if all the items belong to the same restaurant
+const restaurantIds = [...new Set(menuItems.map((item) => item.restaurantId.toString()))];
+  if (restaurantIds.length > 1) {
+    return res.status(400).json({
+      status: "fail",
+      message: "All items in an order must belong to the same restaurant.",
+      restaurants: restaurantIds, // optional, useful for debugging
+    });
+  }
   // Create a map of menu items for easy lookup
   const menuItemMap = {};
   menuItems.forEach((item) => {
@@ -69,14 +80,9 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     notes,
     location: geoLocation, // Optional delivery location
     // If restaurantId was not provided by the client, derive it from the first menu item
-    restaurantId: restaurantId || (menuItems && menuItems.length > 0 ? menuItems[0].restaurantId : undefined),
+    restaurantId: restaurantId || restaurantIds[0],
     // add more fields like userId, status, timestamp if needed
   });
-  // Push job to BullMQ queue for employee assignment
-  // await orderQueue.add("dispatchOrder", {
-  //   orderId: newOrder._id,
-  //   orderType,
-  // });
 
   const io = req.app.get("io");
   if (newOrder && io) {
