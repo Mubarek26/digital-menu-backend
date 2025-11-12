@@ -83,7 +83,7 @@ const createRestaurant = async (req, res) => {
  */
 const getAllRestaurants = async (req, res) => {
   try {
-    const restaurants = await Restaurant.find().populate("ownerId", "name email");
+    const restaurants = await Restaurant.find().populate("ownerId", "name email phoneNumber");
     res.status(200).json({ success: true, restaurants });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -95,7 +95,7 @@ const getAllRestaurants = async (req, res) => {
  */
 const getRestaurantById = async (req, res) => {
   try {
-    const restaurant = await Restaurant.findById(req.params.id).populate("ownerId", "name email");
+    const restaurant = await Restaurant.findById(req.params.id).populate("ownerId", "name email phoneNumber");
     if (!restaurant)
       return res.status(404).json({ success: false, message: "Restaurant not found" });
 
@@ -113,7 +113,7 @@ const getMyRestaurants = async (req, res) => {
     if (req.user.role !== "Owner") {
       return res.status(403).json({ success: false, message: "Only owners can access their restaurants" });
     }
-    const restaurants = await Restaurant.find({ ownerId: req.user._id });
+    const restaurants = await Restaurant.find({ ownerId: req.user._id }).populate("ownerId", "name email phoneNumber");
     res.status(200).json({ success: true, restaurants });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -146,6 +146,8 @@ const assignOwner = async (req, res) => {
     restaurant.ownerId = ownerId;
     restaurant.status = "active"; // optional: activate when assigned
     await restaurant.save();
+    // populate owner info before returning so frontend has name/email/phone
+    await restaurant.populate("ownerId", "name email phoneNumber");
 
     res.status(200).json({
       success: true,
