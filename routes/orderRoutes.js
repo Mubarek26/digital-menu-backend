@@ -8,7 +8,7 @@ router
   .post(orderController.createOrder) // Create a new order
   .get(authController.protect, orderController.getAllOrders); // Get all orders
 // get recent orders
-router.route("/recent-orders").get(orderController.getRecentOrders); // Get recent orders for a restaurant
+router.route("/recent-orders").post(orderController.getRecentOrders); // Get recent orders for a restaurant
 
 router.route("/confirmOrder/:orderId").patch(orderController.confirmOrder); // Restaurant confirms the order
 router.route("/update/:id").patch(orderController.updateOrderStatus);
