@@ -411,6 +411,7 @@ exports.getTopSellingItems = catchAsync(async (req, res, next) => {
 const thirtyDaysAgo = new Date();
 thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+
 exports.activeCustomers = catchAsync(async (req, res, next) => {
   // Determine restaurant context
   const role = String(req.user?.role || "").toLowerCase();
@@ -456,4 +457,30 @@ exports.activeCustomers = catchAsync(async (req, res, next) => {
       activeCustomers: result, // This should be replaced with actual data from the database
     },
   });
+});
+
+// recent orders 
+exports.getRecentOrders = catchAsync(async (req, res, next) => {
+const {phoneNumber} = req.body
+if (!phoneNumber) {
+  return next(new AppError("Please provide phone number", 400));
+}
+// fetch recent orders for the number
+const orders=await Order.find({phoneNumber})
+.sort({createdAt: -1}).limit(20)
+.populate('restaurantId', 'name address')
+.populate('assignedEmployeeId', 'name phoneNumber');
+
+if (!orders || orders.length === 0) {
+  return next(new AppError("No recent orders found for this phone number", 404));
+}
+
+res.status(200).json({
+  status: "success",
+  message: "Recent orders retrieved successfully",
+  data: {
+    orders,
+  },
+});
+
 });

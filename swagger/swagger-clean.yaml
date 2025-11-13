@@ -149,6 +149,30 @@ components:
           type: array
           items:
             type: object
+        phoneNumber:
+          type: string
+        restaurantId:
+          oneOf:
+            - type: string
+            - type: object
+              properties:
+                _id:
+                  type: string
+                name:
+                  type: string
+                address:
+                  type: string
+        assignedEmployeeId:
+          oneOf:
+            - type: string
+            - type: object
+              properties:
+                _id:
+                  type: string
+                name:
+                  type: string
+                phoneNumber:
+                  type: string
         totalPrice:
           type: number
         status:
@@ -981,6 +1005,44 @@ paths:
       responses:
         '200':
           description: OK
+
+  /order/recent-orders:
+    post:
+      summary: Get recent orders for a phone number
+      tags: [Orders]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phoneNumber:
+                  type: string
+                  example: "0912345678"
+      responses:
+        '200':
+          description: Recent orders retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Recent orders retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      orders:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Order'
+        '404':
+          $ref: '#/components/schemas/ErrorResponse'
 
   /payment/initializePayment:
     post:
