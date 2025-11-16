@@ -10,6 +10,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     items,
     orderType,
     phoneNumber,
+  alternatePhoneNumber,
     tableNumber,
     paymentStatus,
     notes,
@@ -73,6 +74,7 @@ const restaurantIds = [...new Set(menuItems.map((item) => item.restaurantId.toSt
       notes: notes || "", // Optional customer note
       restaurantId: menuItem.restaurantId, // Associate order with the restaurant
       address: address || "", // Optional address for delivery
+      alternatePhoneNumber: alternatePhoneNumber || null, // Optional alternate phone number
     });
   });
   // generate a unique order id
@@ -95,6 +97,7 @@ const restaurantIds = [...new Set(menuItems.map((item) => item.restaurantId.toSt
     // If restaurantId was not provided by the client, derive it from the first menu item
     restaurantId: restaurantId || restaurantIds[0],
     address,
+    alternatePhoneNumber,
     // add more fields like userId, status, timestamp if needed
   });
 
@@ -116,20 +119,27 @@ const restaurantIds = [...new Set(menuItems.map((item) => item.restaurantId.toSt
 });
 
 exports.getAllOrders = catchAsync(async (req, res, next) => {
-  // Build filter based on context in this order of priority:
-  // 1. req.query.restaurantId (explicit request)
-  // 2. If the authenticated user is an Owner -> their restaurant
-  // 3. req.user.restaurantId (if present on the user document)
   const role = String(req.user?.role || "").toLowerCase();
   const filter = {};
+  let restaurant = null;
 
-  // Explicit restaurantId passed as query param (e.g. ?restaurantId=...)
-  if (req.query && req.query.restaurantId) {
-    filter.restaurantId = req.query.restaurantId;
-    
-  } else if (req.user && role === "owner") {
-    // For owners, restrict to their restaurant
-    const restaurant = await Restaurant.findOne({ ownerId: req.user._id });
+  // 1️⃣ If restaurantId is passed in query (explicit request)
+  if (req.query?.restaurantId) {
+    restaurant = await Restaurant.findById(req.query.restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Restaurant not found",
+      });
+    }
+    filter.restaurantId = restaurant._id;
+  }
+
+  // 2️⃣ Owners can only see their own restaurant
+  else if (role === "owner") {
+    restaurant = await Restaurant.findOne({ ownerId: req.user._id })
+      .sort({ createdAt: -1 });
+
     if (!restaurant) {
       return res.status(200).json({
         status: "success",
@@ -137,28 +147,50 @@ exports.getAllOrders = catchAsync(async (req, res, next) => {
         data: { orders: [] },
       });
     }
+
     filter.restaurantId = restaurant._id;
-  } else if (req.user && req.user.restaurantId) {
-    // Some user documents may include a restaurantId (e.g. manager/employee)
-    filter.restaurantId = req.user.restaurantId;
   }
 
-  const orders = await Order.find(filter);
-  const restaurant = await Restaurant.findById(filter.restaurantId);
-  // distructure restaurant info if needed
-  const { name, address, phoneNumber,street} = restaurant || {};
+  // 3️⃣ Employees with a restaurantId on their user profile
+  else if (req.user?.restaurantId) {
+    restaurant = await Restaurant.findById(req.user.restaurantId);
+    if (restaurant) filter.restaurantId = restaurant._id;
+  }
+
+  // 4️⃣ Managers or SuperAdmins can see all restaurants
+  else if (role === "manager" || role === "superadmin") {
+    // no filter applied — they can see all orders
+  }
+
+  // 5️⃣ Others (no access)
+  else {
+    return res.status(403).json({
+      status: "fail",
+      message: "You are not authorized to view orders",
+    });
+  }
+
+  // Fetch orders (filtered if applicable)
+  const orders = await Order.find(filter).sort({ createdAt: -1 });
+
+  // Attach restaurant info if one is specified
+  let restaurantInfo = null;
+  if (filter.restaurantId) {
+    const { name, address, phoneNumber, street } = restaurant || {};
+    restaurantInfo = { name, address, phoneNumber, street };
+  }
+
   res.status(200).json({
     status: "success",
     message: "Orders retrieved successfully",
     data: {
-      orders: orders,
-      restaurantInfo: { name, address, phoneNumber,street
-      },
-      
-     
+      orders,
+      restaurantInfo,
     },
   });
 });
+
+
 
 exports.getOrderById = catchAsync(async (req, res, next) => {
   const orderId = req.body.OrderId || req.params.id;
@@ -229,14 +261,23 @@ exports.confirmOrder = catchAsync(async (req, res, next) => {
     throw new AppError("Order not found", 404);
   }
 
-  order.restaurantConfirmed = true;
-  order.updatedAt = Date.now();
-  await order.save({ validateBeforeSave: false });
+  // Atomically set restaurantConfirmed=true only if the order isn't cancelled and not already confirmed
+  const updated = await Order.findOneAndUpdate(
+    { _id: order._id, status: { $ne: "cancelled" }, restaurantConfirmed: { $ne: true } },
+    { $set: { restaurantConfirmed: true, updatedAt: Date.now() } },
+    { new: true }
+  );
+
+  if (!updated) {
+    // Either the order was cancelled, already confirmed, or the condition failed
+    throw new AppError("Cannot confirm order: it may be cancelled or already confirmed", 400);
+  }
+
   res.status(200).json({
     status: "success",
     message: "Order confirmed successfully",
     data: {
-      order, // This should be replaced with actual data from the database
+      order: updated,
     },
   });
 });
@@ -245,19 +286,35 @@ exports.confirmOrder = catchAsync(async (req, res, next) => {
 exports.updateOrderStatus = catchAsync(async (req, res, next) => {
   let status = req.body.status;
 
+  // If cancelling, do an atomic update that prevents cancelling an already-accepted order
+  if (String(status).toLowerCase() === "cancelled") {
+    const updated = await Order.findOneAndUpdate(
+      { _id: req.params.id, restaurantConfirmed: { $ne: true }, status: { $ne: "cancelled" } },
+      { $set: { status, updatedAt: Date.now() } },
+      { new: true }
+    );
+    if (!updated) {
+      throw new AppError("Cannot cancel order: it may already be confirmed or cancelled", 400);
+    }
+    return res.status(200).json({
+      status: "success",
+      message: "Order status updated successfully",
+      data: { order: updated },
+    });
+  }
+
+  // For other status changes, allow update
   const order = await Order.findById(req.params.id);
   if (!order) {
     throw new AppError("Order not found", 404);
   }
   order.status = status;
   order.updatedAt = Date.now();
-  await order.save({validateBeforeSave: false});
+  await order.save({ validateBeforeSave: false });
   res.status(200).json({
     status: "success",
     message: "Order status updated successfully",
-    data: {
-      order, // This should be replaced with actual data from the database
-    },
+    data: { order },
   });
 });
 
@@ -341,7 +398,8 @@ exports.getTotalOrders = catchAsync(async (req, res, next) => {
 exports.getMyOrders = catchAsync(async (req, res, next) => {
   const userId = req.user?._id;
   const orders = await Order.find({ assignedEmployeeId: userId })
-  .populate({path: 'items.menuItem', select: 'price'});
+  .sort({ createdAt: -1 })
+  .populate({ path: 'items.menuItem', select: 'price' });
   // get the price of each order
 
   res.status(200).json({

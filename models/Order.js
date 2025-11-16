@@ -38,6 +38,10 @@ const orderSchema = new mongoose.Schema({
     type: String,
     required: true, // phone number is required for contact
   },
+  alternatePhoneNumber: {
+    type: String,
+    default: null, // optional alternate phone number
+  },
   orderType: {
     type: String,
     enum: ["Dine-In", "Takeaway", "Delivery"],

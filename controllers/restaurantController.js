@@ -142,6 +142,14 @@ const assignOwner = async (req, res) => {
     if (restaurant.ownerId) {
       return res.status(400).json({ success: false, message: "Restaurant already has an owner" });
     }
+    // check the owner has assigned to other restaurant 
+    const existingRestaurant= await Restaurant.findOne({ownerId})
+    if(existingRestaurant){
+      return res.status(400).json({
+        success:false,
+        message:"This owner is already assigned to another restaurant!",
+      })
+    }
 
     restaurant.ownerId = ownerId;
     restaurant.status = "active"; // optional: activate when assigned
