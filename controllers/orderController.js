@@ -3,14 +3,55 @@ const AppError = require("../utils/appError");
 const MenuItem = require("../models/MenuItem");
 const Order = require("../models/Order");
 const Restaurant = require("../models/restaurants");
+const Setting = require("../models/Setting");
 const mongoose = require("mongoose");
 const generateOrderId = require("../utils/generateOrderId");
+const calculateDeliveryFee = require("../utils/calculateDeliveryFee");
+
+const parseNumeric = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getSchemaDefaultNumber = (path, fallback) => {
+  const schemaPath = Setting.schema.path(path);
+  if (!schemaPath) return fallback;
+  const defaultOption = schemaPath.options?.default;
+  const resolvedDefault =
+    typeof defaultOption === "function" ? defaultOption() : defaultOption;
+  const parsedDefault = parseNumeric(resolvedDefault);
+  return parsedDefault !== null ? parsedDefault : fallback;
+};
+
+const DEFAULT_SETTING_VALUES = {
+  delivery_fee: getSchemaDefaultNumber("delivery_fee", 0),
+  delivery_per_km_rate: getSchemaDefaultNumber("delivery_per_km_rate", 0),
+  max_delivery_distance_km: getSchemaDefaultNumber(
+    "max_delivery_distance_km",
+    null
+  ),
+  service_fee: getSchemaDefaultNumber("service_fee", 0),
+};
+
+const getSettingNumeric = (settings, key, fallback) => {
+  const parsed = parseNumeric(settings?.[key]);
+  if (parsed !== null) return parsed;
+
+  if (Object.prototype.hasOwnProperty.call(DEFAULT_SETTING_VALUES, key)) {
+    const defaultValue = DEFAULT_SETTING_VALUES[key];
+    if (defaultValue !== null && typeof defaultValue !== "undefined") {
+      return defaultValue;
+    }
+  }
+
+  return fallback;
+};
 exports.createOrder = catchAsync(async (req, res, next) => {
   const {
     items,
     orderType,
     phoneNumber,
-  alternatePhoneNumber,
+    alternatePhoneNumber,
     tableNumber,
     paymentStatus,
     notes,
@@ -18,86 +59,203 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     restaurantId,
     address,
   } = req.body;
+
   if (!items || items.length === 0) {
     return res.status(400).json({ error: "No items provided in the order." });
   }
 
-  // extract the menu item IDs and quantities from the request body
-  const ids = items.map((item) => item._id);
-  const menuItems = await MenuItem.find({ _id: { $in: ids } }); 
+  const orderTypeKey = String(orderType || "").toLowerCase();
+  const orderTypeMap = {
+    "dine-in": "Dine-In",
+    dinein: "Dine-In",
+    dine: "Dine-In",
+    takeaway: "Takeaway",
+    "take-away": "Takeaway",
+    pickup: "Takeaway",
+    delivery: "Delivery",
+  };
+  const resolvedOrderType = orderTypeMap[orderTypeKey] || "Dine-In";
+  const isDeliveryOrder = resolvedOrderType === "Delivery";
 
-  // check if the restaurant existed
+  const ids = items.map((item) => item._id);
+  const menuItems = await MenuItem.find({ _id: { $in: ids } });
+
+  if (!menuItems.length) {
+    return next(new AppError("No valid menu items found for this order.", 400));
+  }
+
+  let restaurantDoc = null;
   if (restaurantId) {
-    const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) {
-      return res.status(400).json({ 
+    restaurantDoc = await Restaurant.findById(restaurantId);
+    if (!restaurantDoc) {
+      return res.status(400).json({
         status: "fail",
         message: "Restaurant not found with the provided restaurantId.",
       });
     }
   }
-  
-  // check if all the items belong to the same restaurant
-const restaurantIds = [...new Set(menuItems.map((item) => item.restaurantId.toString()))];
+
+  const restaurantIds = [
+    ...new Set(menuItems.map((item) => item.restaurantId.toString())),
+  ];
   if (restaurantIds.length > 1) {
     return res.status(400).json({
       status: "fail",
       message: "All items in an order must belong to the same restaurant.",
-      restaurants: restaurantIds, // optional, useful for debugging
+      restaurants: restaurantIds,
     });
   }
-  // Create a map of menu items for easy lookup
+
+  const resolvedRestaurantId = restaurantId || restaurantIds[0];
+  if (!resolvedRestaurantId) {
+    return next(
+      new AppError("Unable to determine the restaurant for this order.", 400)
+    );
+  }
+
+  if (!restaurantDoc) {
+    restaurantDoc = await Restaurant.findById(resolvedRestaurantId);
+    if (!restaurantDoc) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Restaurant not found for the provided menu items.",
+      });
+    }
+  }
+
+  const settings = await Setting.findOne().lean();
+  const baseDeliveryFee = getSettingNumeric(settings, "delivery_fee", 0);
+  const perKmRate = getSettingNumeric(settings, "delivery_per_km_rate", 0);
+  const maxDeliveryDistanceKm = getSettingNumeric(
+    settings,
+    "max_delivery_distance_km",
+    null
+  );
+  const defaultServiceFee = getSettingNumeric(settings, "service_fee", 0);
+
+  let geoLocation;
+  let customerCoords = null;
+  if (
+    location &&
+    typeof location.lng !== "undefined" &&
+    typeof location.lat !== "undefined"
+  ) {
+    const lng = Number(location.lng);
+    const lat = Number(location.lat);
+    if (Number.isFinite(lng) && Number.isFinite(lat)) {
+      geoLocation = {
+        type: "Point",
+        coordinates: [lng, lat],
+      };
+      customerCoords = [lng, lat];
+    }
+  }
+
+  const restaurantCoordsRaw = restaurantDoc?.address?.coordinates?.coordinates;
+  let restaurantCoords = null;
+  if (Array.isArray(restaurantCoordsRaw) && restaurantCoordsRaw.length === 2) {
+    const parsedCoords = restaurantCoordsRaw.map((coord) => Number(coord));
+    if (parsedCoords.every((coord) => Number.isFinite(coord))) {
+      restaurantCoords = parsedCoords;
+    }
+  }
+
   const menuItemMap = {};
   menuItems.forEach((item) => {
-    menuItemMap[item._id] = item;
+    menuItemMap[item._id.toString()] = item;
   });
 
-  let totalPrice = 0;
-  let orderItems = [];
+  let subtotal = 0;
+  const orderItems = [];
 
-  items.forEach((item) => {
-    const menuItem = menuItemMap[item._id];
+  for (const item of items) {
+    const menuItem = menuItemMap[String(item._id)];
     if (!menuItem) {
       return next(new AppError(`Menu item with ID ${item._id} not found`, 404));
     }
 
-    totalPrice += menuItem.price * item.quantity;
-    // Create GeoJSON location object if location is provided
-   
+    const quantity = Number(item.quantity);
+    if (!Number.isFinite(quantity) || quantity < 1) {
+      return next(
+        new AppError(`Invalid quantity for menu item ${item._id}`, 400)
+      );
+    }
+
+    subtotal += menuItem.price * quantity;
+
     orderItems.push({
       menuItem: menuItem._id,
-      quantity: item.quantity,
-      phoneNumber: phoneNumber, // Assuming phone number is passed in the request body
-      tableNumber: tableNumber, // Assuming table number is passed in the request body
+      quantity,
       name: menuItem.name,
-      paymentStatus: paymentStatus, // Assuming payment status is passed in the request body
-      notes: notes || "", // Optional customer note
-      restaurantId: menuItem.restaurantId, // Associate order with the restaurant
-      address: address || "", // Optional address for delivery
-      alternatePhoneNumber: alternatePhoneNumber || null, // Optional alternate phone number
     });
-  });
-  // generate a unique order id
-  const orderId =  generateOrderId();
-   const geoLocation = location
-      ? {
-          type: "Point",
-          coordinates: [location.lng, location.lat],
-        }
-      : undefined;
+  }
+
+  subtotal = Math.round(subtotal * 100) / 100;
+
+  let deliveryDistanceKm = null;
+  const deliveryFeeOverride = parseNumeric(req.body.deliveryFee);
+  let deliveryFee =
+    deliveryFeeOverride !== null ? Math.max(0, deliveryFeeOverride) : 0;
+
+  if (deliveryFeeOverride === null && isDeliveryOrder) {
+    const { fee, distanceKm, exceededDistance } = calculateDeliveryFee({
+      restaurantCoords,
+      customerCoords,
+      baseFee: baseDeliveryFee,
+      perKmRate,
+      maxDistanceKm: maxDeliveryDistanceKm,
+      settings,
+    });
+
+    if (exceededDistance) {
+      return next(
+        new AppError(
+          `Delivery distance (${distanceKm} km) exceeds the maximum allowed ${maxDeliveryDistanceKm} km.`,
+          400
+        )
+      );
+    }
+
+    if (fee !== null && typeof fee !== "undefined") {
+      deliveryFee = fee;
+    }
+    deliveryDistanceKm = distanceKm;
+  }
+
+  if (!isDeliveryOrder && deliveryFeeOverride === null) {
+    deliveryFee = 0;
+  }
+
+  let serviceFee = parseNumeric(req.body.serviceFee);
+  if (serviceFee === null) {
+    serviceFee = defaultServiceFee;
+  }
+  serviceFee = Math.max(0, serviceFee);
+
+  const totalPrice = Math.max(
+    0,
+    Math.round((subtotal + deliveryFee + serviceFee) * 100) / 100
+  );
+
+  const orderId = generateOrderId();
+
   const newOrder = await Order.create({
     orderId,
     items: orderItems,
-    orderType,
+    orderType: resolvedOrderType,
+    subtotal,
     totalPrice,
+    deliveryFee,
+    serviceFee,
+    deliveryDistanceKm,
     phoneNumber,
     tableNumber,
     notes,
-    location: geoLocation, // Optional delivery location
-    // If restaurantId was not provided by the client, derive it from the first menu item
-    restaurantId: restaurantId || restaurantIds[0],
+    location: geoLocation,
+    restaurantId: resolvedRestaurantId,
     address,
     alternatePhoneNumber,
+    paymentStatus,
     // add more fields like userId, status, timestamp if needed
   });
 
@@ -109,12 +267,15 @@ const restaurantIds = [...new Set(menuItems.map((item) => item.restaurantId.toSt
     });
   }
 
+  const responseData = { order: newOrder };
+  if (deliveryDistanceKm !== null) {
+    responseData.deliveryDistanceKm = deliveryDistanceKm;
+  }
+
   res.status(201).json({
     status: "success",
     message: "Order created successfully",
-    data: {
-      order: newOrder, // This should be replaced with actual data from the database
-    },
+    data: responseData,
   });
 });
 
@@ -302,6 +463,19 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
       data: { order: updated },
     });
   }
+
+  // shoud not update if it is alredy accepted by delivery person
+ 
+if (String(status).toLowerCase() === "accepted") {
+  const order = await Order.findById(req.params.id);
+  if (!order) {
+    throw new AppError("Order not found", 404);
+  }
+  if (order.assignedEmployeeId && req.user && String(order.assignedEmployeeId) !== String(req.user._id)) {
+    throw new AppError("Cannot accept order: it has already been accepted by a delivery person", 400);
+  }
+}
+
 
   // For other status changes, allow update
   const order = await Order.findById(req.params.id);
