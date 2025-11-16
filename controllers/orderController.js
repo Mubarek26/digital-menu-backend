@@ -10,6 +10,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     items,
     orderType,
     phoneNumber,
+  alternatePhoneNumber,
     tableNumber,
     paymentStatus,
     notes,
@@ -73,6 +74,7 @@ const restaurantIds = [...new Set(menuItems.map((item) => item.restaurantId.toSt
       notes: notes || "", // Optional customer note
       restaurantId: menuItem.restaurantId, // Associate order with the restaurant
       address: address || "", // Optional address for delivery
+      alternatePhoneNumber: alternatePhoneNumber || null, // Optional alternate phone number
     });
   });
   // generate a unique order id
@@ -95,6 +97,7 @@ const restaurantIds = [...new Set(menuItems.map((item) => item.restaurantId.toSt
     // If restaurantId was not provided by the client, derive it from the first menu item
     restaurantId: restaurantId || restaurantIds[0],
     address,
+    alternatePhoneNumber,
     // add more fields like userId, status, timestamp if needed
   });
 
@@ -258,14 +261,23 @@ exports.confirmOrder = catchAsync(async (req, res, next) => {
     throw new AppError("Order not found", 404);
   }
 
-  order.restaurantConfirmed = true;
-  order.updatedAt = Date.now();
-  await order.save({ validateBeforeSave: false });
+  // Atomically set restaurantConfirmed=true only if the order isn't cancelled and not already confirmed
+  const updated = await Order.findOneAndUpdate(
+    { _id: order._id, status: { $ne: "cancelled" }, restaurantConfirmed: { $ne: true } },
+    { $set: { restaurantConfirmed: true, updatedAt: Date.now() } },
+    { new: true }
+  );
+
+  if (!updated) {
+    // Either the order was cancelled, already confirmed, or the condition failed
+    throw new AppError("Cannot confirm order: it may be cancelled or already confirmed", 400);
+  }
+
   res.status(200).json({
     status: "success",
     message: "Order confirmed successfully",
     data: {
-      order, // This should be replaced with actual data from the database
+      order: updated,
     },
   });
 });
@@ -274,19 +286,35 @@ exports.confirmOrder = catchAsync(async (req, res, next) => {
 exports.updateOrderStatus = catchAsync(async (req, res, next) => {
   let status = req.body.status;
 
+  // If cancelling, do an atomic update that prevents cancelling an already-accepted order
+  if (String(status).toLowerCase() === "cancelled") {
+    const updated = await Order.findOneAndUpdate(
+      { _id: req.params.id, restaurantConfirmed: { $ne: true }, status: { $ne: "cancelled" } },
+      { $set: { status, updatedAt: Date.now() } },
+      { new: true }
+    );
+    if (!updated) {
+      throw new AppError("Cannot cancel order: it may already be confirmed or cancelled", 400);
+    }
+    return res.status(200).json({
+      status: "success",
+      message: "Order status updated successfully",
+      data: { order: updated },
+    });
+  }
+
+  // For other status changes, allow update
   const order = await Order.findById(req.params.id);
   if (!order) {
     throw new AppError("Order not found", 404);
   }
   order.status = status;
   order.updatedAt = Date.now();
-  await order.save({validateBeforeSave: false});
+  await order.save({ validateBeforeSave: false });
   res.status(200).json({
     status: "success",
     message: "Order status updated successfully",
-    data: {
-      order, // This should be replaced with actual data from the database
-    },
+    data: { order },
   });
 });
 
