@@ -332,7 +332,32 @@ exports.getAllOrders = catchAsync(async (req, res, next) => {
   }
 
   // Fetch orders (filtered if applicable)
-  const orders = await Order.find(filter).sort({ createdAt: -1 });
+  const orders = await Order.find(filter)
+    .sort({ createdAt: -1 })
+    .populate({
+      path: "assignedEmployeeId",
+      select: "name phoneNumber email role status",
+    })
+    .lean();
+
+  const normalizedOrders = orders.map((order) => {
+    const employee = order.assignedEmployeeId;
+    if (employee && typeof employee === "object" && employee !== null && "_id" in employee) {
+      return {
+        ...order,
+        assignedEmployeeId: employee._id,
+        user: {
+          _id: employee._id,
+          name: employee.name,
+          phoneNumber: employee.phoneNumber,
+          email: employee.email,
+          role: employee.role,
+          status: employee.status,
+        },
+      };
+    }
+    return order;
+  });
 
   // Attach restaurant info if one is specified
   let restaurantInfo = null;
@@ -345,7 +370,7 @@ exports.getAllOrders = catchAsync(async (req, res, next) => {
     status: "success",
     message: "Orders retrieved successfully",
     data: {
-      orders,
+      orders: normalizedOrders,
       restaurantInfo,
     },
   });
