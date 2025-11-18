@@ -437,6 +437,27 @@ tags:
         '200':
           description: OK
 
+	/settings/pricing:
+		get:
+			summary: Get delivery pricing settings
+			tags: [Settings]
+			responses:
+				'200':
+					description: Pricing settings fetched successfully
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									status:
+										type: string
+										example: success
+									message:
+										type: string
+										example: Pricing settings retrieved successfully
+									data:
+										$ref: '#/components/schemas/PricingSettings'
+
   /users/me:
     get:
       summary: Get current user profile
@@ -715,6 +736,40 @@ components:
 				createdAt:
 					type: string
 					format: date-time
+
+			PricingSettings:
+				type: object
+				properties:
+					delivery_fee:
+						type: number
+						description: Base delivery fee applied to every order
+					delivery_per_km_rate:
+						type: number
+						description: Additional fee charged per kilometre travelled
+					max_delivery_distance_km:
+						type: number
+						nullable: true
+						description: Maximum delivery distance allowed (null means unlimited)
+					service_fee:
+						type: number
+						description: Additional service fee applied to orders
+
+			PricingSettings:
+				type: object
+				properties:
+					delivery_fee:
+						type: number
+						description: Base delivery fee applied to every order
+					delivery_per_km_rate:
+						type: number
+						description: Additional fee charged per kilometre travelled
+					max_delivery_distance_km:
+						type: number
+						nullable: true
+						description: Maximum delivery distance allowed (null means unlimited)
+					service_fee:
+						type: number
+						description: Additional service fee applied to orders
 
 		PaymentInit:
 			type: object
@@ -1478,6 +1533,27 @@ paths:
 			responses:
 				'200':
 					description: OK
+
+		/settings/pricing:
+			get:
+				summary: Get delivery pricing settings
+				tags: [Settings]
+				responses:
+					'200':
+						description: Pricing settings fetched successfully
+						content:
+							application/json:
+								schema:
+									type: object
+									properties:
+										status:
+											type: string
+											example: success
+										message:
+											type: string
+											example: Pricing settings retrieved successfully
+										data:
+											$ref: '#/components/schemas/PricingSettings'
 
 	/users/me:
 		get:
@@ -2495,6 +2571,27 @@ tags:
 				responses:
 					'200':
 						description: OK
+
+			/settings/pricing:
+				get:
+					summary: Get delivery pricing settings
+					tags: [Settings]
+					responses:
+						'200':
+							description: Pricing settings fetched successfully
+							content:
+								application/json:
+									schema:
+										type: object
+										properties:
+											status:
+												type: string
+												example: success
+											message:
+												type: string
+												example: Pricing settings retrieved successfully
+											data:
+												$ref: '#/components/schemas/PricingSettings'
 
 		/users/me:
 			get:
