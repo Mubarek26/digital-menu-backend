@@ -45,6 +45,9 @@ app.use('/api/v1/payment', paymentRoutes);
 app.use('/api/v1/settings', settingsRoutes);
 // (restaurant routes already mounted above)
 // console.log('app: mounted /api/v1/settings');
+app.get('/favicon.ico', (req, res) => {
+  res.status(204).end();
+});
 app.all('*', (req, res, next) => {
   const error = new AppError(
     `Can't find ${req.originalUrl} on this server!`,
