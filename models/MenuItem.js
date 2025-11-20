@@ -5,7 +5,7 @@ const menuItemSchema = new mongoose.Schema({
     name: {
         type: String,
         required: [true, 'Menu item must have a name'],
-        unique: true
+        // unique: true
     },
     description: {
         type: String,
@@ -38,8 +38,12 @@ const menuItemSchema = new mongoose.Schema({
         default: 'default.jpg',
 
     },
-
-
+    restaurantId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Restaurant',
+        required: [true, 'Menu item must belong to a restaurant']
+    }
+    
 })
 
 const MenuItem = mongoose.model('MenuItem', menuItemSchema);

@@ -45,7 +45,7 @@ const restaurantSchema = new mongoose.Schema(
         }
       }
     },
-
+street: { type: String, trim: true },
     // 🕓 Operating Schedule
     schedule: {
       openingTime: { type: String, default: "08:00" },

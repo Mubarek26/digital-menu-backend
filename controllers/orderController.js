@@ -2,6 +2,8 @@ const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 const MenuItem = require("../models/MenuItem");
 const Order = require("../models/Order");
+const Restaurant = require("../models/restaurants");
+const mongoose = require("mongoose");
 const generateOrderId = require("../utils/generateOrderId");
 exports.createOrder = catchAsync(async (req, res, next) => {
   const {
@@ -12,13 +14,37 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     paymentStatus,
     notes,
     location,
+    restaurantId,
+    address,
   } = req.body;
   if (!items || items.length === 0) {
     return res.status(400).json({ error: "No items provided in the order." });
   }
+
   // extract the menu item IDs and quantities from the request body
   const ids = items.map((item) => item._id);
-  const menuItems = await MenuItem.find({ _id: { $in: ids } }); //
+  const menuItems = await MenuItem.find({ _id: { $in: ids } }); 
+
+  // check if the restaurant existed
+  if (restaurantId) {
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(400).json({ 
+        status: "fail",
+        message: "Restaurant not found with the provided restaurantId.",
+      });
+    }
+  }
+  
+  // check if all the items belong to the same restaurant
+const restaurantIds = [...new Set(menuItems.map((item) => item.restaurantId.toString()))];
+  if (restaurantIds.length > 1) {
+    return res.status(400).json({
+      status: "fail",
+      message: "All items in an order must belong to the same restaurant.",
+      restaurants: restaurantIds, // optional, useful for debugging
+    });
+  }
   // Create a map of menu items for easy lookup
   const menuItemMap = {};
   menuItems.forEach((item) => {
@@ -45,10 +71,12 @@ exports.createOrder = catchAsync(async (req, res, next) => {
       name: menuItem.name,
       paymentStatus: paymentStatus, // Assuming payment status is passed in the request body
       notes: notes || "", // Optional customer note
+      restaurantId: menuItem.restaurantId, // Associate order with the restaurant
+      address: address || "", // Optional address for delivery
     });
   });
   // generate a unique order id
-  const orderId = await generateOrderId();
+  const orderId =  generateOrderId();
    const geoLocation = location
       ? {
           type: "Point",
@@ -64,13 +92,11 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     tableNumber,
     notes,
     location: geoLocation, // Optional delivery location
+    // If restaurantId was not provided by the client, derive it from the first menu item
+    restaurantId: restaurantId || restaurantIds[0],
+    address,
     // add more fields like userId, status, timestamp if needed
   });
-  // Push job to BullMQ queue for employee assignment
-  // await orderQueue.add("dispatchOrder", {
-  //   orderId: newOrder._id,
-  //   orderType,
-  // });
 
   const io = req.app.get("io");
   if (newOrder && io) {
@@ -90,15 +116,78 @@ exports.createOrder = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllOrders = catchAsync(async (req, res, next) => {
-  const orders = await Order.find();
+  const role = String(req.user?.role || "").toLowerCase();
+  const filter = {};
+  let restaurant = null;
+
+  // 1️⃣ If restaurantId is passed in query (explicit request)
+  if (req.query?.restaurantId) {
+    restaurant = await Restaurant.findById(req.query.restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Restaurant not found",
+      });
+    }
+    filter.restaurantId = restaurant._id;
+  }
+
+  // 2️⃣ Owners can only see their own restaurant
+  else if (role === "owner") {
+    restaurant = await Restaurant.findOne({ ownerId: req.user._id })
+      .sort({ createdAt: -1 });
+
+    if (!restaurant) {
+      return res.status(200).json({
+        status: "success",
+        message: "No restaurant found for this owner",
+        data: { orders: [] },
+      });
+    }
+
+    filter.restaurantId = restaurant._id;
+  }
+
+  // 3️⃣ Employees with a restaurantId on their user profile
+  else if (req.user?.restaurantId) {
+    restaurant = await Restaurant.findById(req.user.restaurantId);
+    if (restaurant) filter.restaurantId = restaurant._id;
+  }
+
+  // 4️⃣ Managers or SuperAdmins can see all restaurants
+  else if (role === "manager" || role === "superadmin") {
+    // no filter applied — they can see all orders
+  }
+
+  // 5️⃣ Others (no access)
+  else {
+    return res.status(403).json({
+      status: "fail",
+      message: "You are not authorized to view orders",
+    });
+  }
+
+  // Fetch orders (filtered if applicable)
+  const orders = await Order.find(filter).sort({ createdAt: -1 });
+
+  // Attach restaurant info if one is specified
+  let restaurantInfo = null;
+  if (filter.restaurantId) {
+    const { name, address, phoneNumber, street } = restaurant || {};
+    restaurantInfo = { name, address, phoneNumber, street };
+  }
+
   res.status(200).json({
     status: "success",
-    message: "All orders retrieved successfully",
+    message: "Orders retrieved successfully",
     data: {
-      orders: orders,
+      orders,
+      restaurantInfo,
     },
   });
 });
+
+
 
 exports.getOrderById = catchAsync(async (req, res, next) => {
   const orderId = req.body.OrderId || req.params.id;
@@ -147,6 +236,39 @@ exports.getOrderById = catchAsync(async (req, res, next) => {
   });
 });
 
+// sets the order to confirmed
+exports.confirmOrder = catchAsync(async (req, res, next) => {
+  // Support both MongoDB _id and the generated orderId field in the URL param.
+  // The route uses :orderId, but that value might be the custom orderId string
+  // (e.g. ORD-123) or a Mongo ObjectId. Try to find by _id first (if valid),
+  // otherwise look up by the `orderId` field.
+  const param = req.params.orderId || req.params.id;
+  let order = null;
+
+  if (param && mongoose.Types.ObjectId.isValid(param)) {
+    order = await Order.findById(param);
+  }
+
+  if (!order && param) {
+    // try matching the custom orderId field
+    order = await Order.findOne({ orderId: String(param).trim() });
+  }
+
+  if (!order) {
+    throw new AppError("Order not found", 404);
+  }
+
+  order.restaurantConfirmed = true;
+  order.updatedAt = Date.now();
+  await order.save({ validateBeforeSave: false });
+  res.status(200).json({
+    status: "success",
+    message: "Order confirmed successfully",
+    data: {
+      order, // This should be replaced with actual data from the database
+    },
+  });
+});
 
 // Update order status
 exports.updateOrderStatus = catchAsync(async (req, res, next) => {
@@ -158,7 +280,7 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
   }
   order.status = status;
   order.updatedAt = Date.now();
-  await order.save();
+  await order.save({validateBeforeSave: false});
   res.status(200).json({
     status: "success",
     message: "Order status updated successfully",
@@ -168,12 +290,36 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
   });
 });
 
-exports.getAllTotalRevenue = catchAsync(async (req, res, next) => {
-  const result = await Order.aggregate([
-    {
-      $match: { status: "completed" }, // Assuming you want to calculate revenue for completed orders
-    },
 
+exports.getAllTotalRevenue = catchAsync(async (req, res, next) => {
+  // Determine restaurant filter (same priority as getAllOrders)
+  const role = String(req.user?.role || "").toLowerCase();
+  let restaurantId;
+  if (req.query && req.query.restaurantId) {
+    try {
+      restaurantId = mongoose.Types.ObjectId(req.query.restaurantId);
+    } catch (err) {
+      return next(new AppError("Invalid restaurantId", 400));
+    }
+  } else if (req.user && role === "owner") {
+    const restaurant = await Restaurant.findOne({ ownerId: req.user._id });
+    if (!restaurant) {
+      return res.status(200).json({
+        status: "success",
+        message: "No restaurant found for this owner",
+        data: { totalRevenue: 0 },
+      });
+    }
+    restaurantId = restaurant._id;
+  } else if (req.user && req.user.restaurantId) {
+    restaurantId = req.user.restaurantId;
+  }
+
+  const match = { status: "completed" };
+  if (restaurantId) match.restaurantId = restaurantId;
+
+  const result = await Order.aggregate([
+    { $match: match },
     {
       $group: {
         _id: null,
@@ -192,7 +338,26 @@ exports.getAllTotalRevenue = catchAsync(async (req, res, next) => {
 
 // Get total number of orders
 exports.getTotalOrders = catchAsync(async (req, res, next) => {
-  const totalOrders = await Order.countDocuments();
+  // Apply restaurant scoping similar to getAllOrders
+  const role = String(req.user?.role || "").toLowerCase();
+  const filter = {};
+  if (req.query && req.query.restaurantId) {
+    filter.restaurantId = req.query.restaurantId;
+  } else if (req.user && role === "owner") {
+    const restaurant = await Restaurant.findOne({ ownerId: req.user._id });
+    if (!restaurant) {
+      return res.status(200).json({
+        status: "success",
+        message: "No restaurant found for this owner",
+        data: { totalOrders: 0 },
+      });
+    }
+    filter.restaurantId = restaurant._id;
+  } else if (req.user && req.user.restaurantId) {
+    filter.restaurantId = req.user.restaurantId;
+  }
+
+  const totalOrders = await Order.countDocuments(filter);
   res.status(200).json({
     status: "success",
     message: "Total orders retrieved successfully",
@@ -204,28 +369,53 @@ exports.getTotalOrders = catchAsync(async (req, res, next) => {
 
 exports.getMyOrders = catchAsync(async (req, res, next) => {
   const userId = req.user?._id;
-  const orders = await Order.find({ assignedEmployeeId: userId });
+  const orders = await Order.find({ assignedEmployeeId: userId })
+  .sort({ createdAt: -1 })
+  .populate({ path: 'items.menuItem', select: 'price' });
+  // get the price of each order
+
   res.status(200).json({
     status: "success",
     data: { orders },
   });
 });
 exports.getTopSellingItems = catchAsync(async (req, res, next) => {
-  const result = await Order.aggregate([
-    {
-      $unwind: "$items", // Unwind the items array to get individual items
-    },
+  // Determine restaurant context
+  const role = String(req.user?.role || "").toLowerCase();
+  let restaurantId;
+  if (req.query && req.query.restaurantId) {
+    try {
+      restaurantId = mongoose.Types.ObjectId(req.query.restaurantId);
+    } catch (err) {
+      return next(new AppError("Invalid restaurantId", 400));
+    }
+  } else if (req.user && role === "owner") {
+    const restaurant = await Restaurant.findOne({ ownerId: req.user._id });
+    if (!restaurant) {
+      return res.status(200).json({
+        status: "success",
+        message: "No restaurant found for this owner",
+        data: { topSellingItems: [] },
+      });
+    }
+    restaurantId = restaurant._id;
+  } else if (req.user && req.user.restaurantId) {
+    restaurantId = req.user.restaurantId;
+  }
+
+  const pipeline = [];
+  if (restaurantId) pipeline.push({ $match: { restaurantId } });
+  pipeline.push(
+    { $unwind: "$items" },
     {
       $lookup: {
-        from: "menuitems", // Assuming the collection name for MenuItem is "menuitems"
+        from: "menuitems",
         localField: "items.name",
         foreignField: "name",
         as: "menuItemInfo",
       },
     },
-    {
-      $unwind: "$menuItemInfo", // Unwind the menuItemInfo array to get individual menu item details
-    },
+    { $unwind: "$menuItemInfo" },
     {
       $group: {
         _id: "$items.name",
@@ -235,13 +425,11 @@ exports.getTopSellingItems = catchAsync(async (req, res, next) => {
         },
       },
     },
-    {
-      $sort: { totalSold: -1 }, // Sort by total sold in descending order
-    },
-    {
-      $limit: 10, // Limit to top 10 selling items
-    },
-  ]);
+    { $sort: { totalSold: -1 } },
+    { $limit: 10 }
+  );
+
+  const result = await Order.aggregate(pipeline);
   res.status(200).json({
     status: "success",
     message: "Top selling items retrieved successfully",
@@ -253,16 +441,39 @@ exports.getTopSellingItems = catchAsync(async (req, res, next) => {
 const thirtyDaysAgo = new Date();
 thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+
 exports.activeCustomers = catchAsync(async (req, res, next) => {
+  // Determine restaurant context
+  const role = String(req.user?.role || "").toLowerCase();
+  let restaurantId;
+  if (req.query && req.query.restaurantId) {
+    try {
+      restaurantId = mongoose.Types.ObjectId(req.query.restaurantId);
+    } catch (err) {
+      return next(new AppError("Invalid restaurantId", 400));
+    }
+  } else if (req.user && role === "owner") {
+    const restaurant = await Restaurant.findOne({ ownerId: req.user._id });
+    if (!restaurant) {
+      return res.status(200).json({
+        status: "success",
+        message: "No restaurant found for this owner",
+        data: { activeCustomers: [] },
+      });
+    }
+    restaurantId = restaurant._id;
+  } else if (req.user && req.user.restaurantId) {
+    restaurantId = req.user.restaurantId;
+  }
+
+  const match = { createdAt: { $gte: thirtyDaysAgo } };
+  if (restaurantId) match.restaurantId = restaurantId;
+
   const result = await Order.aggregate([
-    {
-      $match: {
-        createdAt: { $gte: thirtyDaysAgo }, // Filter orders from the last 30 days
-      },
-    },
+    { $match: match },
     {
       $group: {
-        _id: "$phoneNumber", // Group by phone number
+        _id: "$phoneNumber",
         orders: { $sum: 1 },
         totalSpent: { $sum: "$totalPrice" },
       },
@@ -276,4 +487,30 @@ exports.activeCustomers = catchAsync(async (req, res, next) => {
       activeCustomers: result, // This should be replaced with actual data from the database
     },
   });
+});
+
+// recent orders 
+exports.getRecentOrders = catchAsync(async (req, res, next) => {
+const {phoneNumber} = req.body
+if (!phoneNumber) {
+  return next(new AppError("Please provide phone number", 400));
+}
+// fetch recent orders for the number
+const orders=await Order.find({phoneNumber})
+.sort({createdAt: -1}).limit(20)
+.populate('restaurantId', 'name address')
+.populate('assignedEmployeeId', 'name phoneNumber');
+
+if (!orders || orders.length === 0) {
+  return next(new AppError("No recent orders found for this phone number", 404));
+}
+
+res.status(200).json({
+  status: "success",
+  message: "Recent orders retrieved successfully",
+  data: {
+    orders,
+  },
+});
+
 });

@@ -6,20 +6,21 @@ const authController = require("../controllers/authController");
 router
   .route("/")
   .post(orderController.createOrder) // Create a new order
-  .get(orderController.getAllOrders); // Get all orders
+  .get(authController.protect, orderController.getAllOrders); // Get all orders
+// get recent orders
+router.route("/recent-orders").post(orderController.getRecentOrders); // Get recent orders for a restaurant
+
+router.route("/confirmOrder/:orderId").patch(orderController.confirmOrder); // Restaurant confirms the order
+router.route("/update/:id").patch(orderController.updateOrderStatus);
+router.route("/getOrder/:id").get(orderController.getOrderById); // Get an order by ID
 
 router
-  .route("/update/:id")
-  .patch(orderController.updateOrderStatus);
-router
-  .route("/getOrder/:id")
-  .get(orderController.getOrderById); // Get an order by ID
+  .route("/analytics/total-revenue/:restaurantId")
+  .get(authController.protect, orderController.getAllTotalRevenue); // Get total revenue from completed orders
 
 router
-  .route("/analytics/total-revenue")
-  .get(orderController.getAllTotalRevenue); // Get total revenue from completed orders
-
-router.route("/analytics/total-orders").get(orderController.getTotalOrders); // Get total revenue from completed orders
+  .route("/analytics/total-orders/:restaurantId")
+  .get(orderController.getTotalOrders); // Get total revenue from completed orders
 
 router
   .route("/analytics/top-selling-items")
