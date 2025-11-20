@@ -1,6 +1,6 @@
 // db.js
-const mongoose = require('mongoose');
-require('dotenv').config();
+const mongoose = require("mongoose");
+require("dotenv").config();
 
 const connectDB = async () => {
   try {
@@ -8,12 +8,12 @@ const connectDB = async () => {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
-    console.log('✅ MongoDB connected!');
+    console.log("✅ MongoDB connected!");
 
     // Load background dispatcher AFTER successful connection
-    require('../utils/dispatcher.js');
+    require("../utils/dispatcher.js");
   } catch (err) {
-    console.error('❌ MongoDB connection error:', err.message);
+    console.error("❌ MongoDB connection error:", err.message);
     process.exit(1); // Stop the app if the DB connection fails
   }
 };
