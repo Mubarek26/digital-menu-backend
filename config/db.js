@@ -1,13 +1,12 @@
 // db.js
 const mongoose = require('mongoose');
 require('dotenv').config();
+const ensureSuperAdmin = require('../utils/ensureSuperAdmin');
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.DATABASE,{
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(process.env.DATABASE);
+    await ensureSuperAdmin();
     console.log('✅ MongoDB connected!');
 
     // Load background dispatcher AFTER successful connection
