@@ -1,4 +1,3 @@
-const bcrypt = require('bcryptjs');
 const User = require('../models/UserModel');
 
 async function ensureSuperAdmin() {
@@ -18,12 +17,11 @@ async function ensureSuperAdmin() {
       return;
     }
 
-    const hash = await bcrypt.hash(password, 12);
     await User.create({
       name: 'Super Admin',
       email,
-      password: hash,
-      passwordConfirm: hash,
+      password,
+      passwordConfirm: password,
       phoneNumber: phoneNumber || '',
       role: 'superadmin',
       active: true,
