@@ -679,6 +679,7 @@ exports.getMyOrders = catchAsync(async (req, res, next) => {
   const userId = req.user?._id;
   const orders = await Order.find({ assignedEmployeeId: userId })
   .sort({ createdAt: -1 })
+  .limit(20)
   .populate({ path: 'items.menuItem', select: 'price' });
   // get the price of each order
 
