@@ -332,83 +332,8 @@ exports.getAllOrders = catchAsync(async (req, res, next) => {
   }
 
   // Fetch orders (filtered if applicable)
-  const parsePositiveInt = (value, fallback) => {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      return Math.floor(parsed);
-    }
-    return fallback;
-  };
-
-  const orderTypeMap = {
-    "dine-in": "Dine-In",
-    dinein: "Dine-In",
-    dine: "Dine-In",
-    takeaway: "Takeaway",
-    "take-away": "Takeaway",
-    pickup: "Takeaway",
-    delivery: "Delivery",
-  };
-
-  const getQueryValue = (value) => {
-    if (Array.isArray(value)) return value[0];
-    return value;
-  };
-
-  const rawPage = getQueryValue(req.query.page);
-  const rawLimit = getQueryValue(req.query.limit);
-  const rawStatus = getQueryValue(req.query.status);
-  const rawType = getQueryValue(req.query.type);
-  const rawSearch = getQueryValue(req.query.search);
-
-  const limit = Math.min(parsePositiveInt(rawLimit, 10), 100);
-  const requestedPage = parsePositiveInt(rawPage, 1);
-
-  const queryFilter = { ...filter };
-
-  if (rawStatus) {
-    const normalizedStatus = String(rawStatus).trim().toLowerCase();
-    if (normalizedStatus) {
-      queryFilter.status = normalizedStatus;
-    }
-  }
-
-  if (rawType) {
-    const normalizedTypeKey = String(rawType).trim().toLowerCase();
-    const mappedType = orderTypeMap[normalizedTypeKey] || String(rawType).trim();
-    if (mappedType) {
-      queryFilter.orderType = mappedType;
-    }
-  }
-
-  let searchCondition = null;
-  if (rawSearch) {
-    const trimmedSearch = String(rawSearch).trim();
-    if (trimmedSearch) {
-      const regex = new RegExp(trimmedSearch, "i");
-      searchCondition = {
-        $or: [
-          { phoneNumber: regex },
-          { orderId: regex },
-          { customerName: regex },
-        ],
-      };
-    }
-  }
-
-  const combinedFilter = searchCondition
-    ? { ...queryFilter, ...searchCondition }
-    : queryFilter;
-
-  const totalOrders = await Order.countDocuments(combinedFilter);
-  const totalPages = totalOrders > 0 ? Math.ceil(totalOrders / limit) : 0;
-  const currentPage = totalPages > 0 ? Math.min(requestedPage, totalPages) : 1;
-  const skip = totalPages > 0 ? (currentPage - 1) * limit : 0;
-
-  const orders = await Order.find(combinedFilter)
+  const orders = await Order.find(filter)
     .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(limit)
     .populate({
       path: "assignedEmployeeId",
       select: "name phoneNumber email role status",
@@ -447,12 +372,6 @@ exports.getAllOrders = catchAsync(async (req, res, next) => {
     data: {
       orders: normalizedOrders,
       restaurantInfo,
-      pagination: {
-        page: totalPages > 0 ? currentPage : 1,
-        limit,
-        totalPages,
-        totalOrders,
-      },
     },
   });
 });
@@ -556,12 +475,12 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
   // If cancelling, do an atomic update that prevents cancelling an already-accepted order
   if (String(status).toLowerCase() === "cancelled") {
     const updated = await Order.findOneAndUpdate(
-      { _id: req.params.id, status: { $nin: ["cancelled", "completed"] } },
+      { _id: req.params.id, restaurantConfirmed: { $ne: true }, status: { $ne: "cancelled" } },
       { $set: { status, updatedAt: Date.now() } },
       { new: true }
     );
     if (!updated) {
-      throw new AppError("Cannot cancel order: it may already be completed or cancelled", 400);
+      throw new AppError("Cannot cancel order: it may already be confirmed or cancelled", 400);
     }
     return res.status(200).json({
       status: "success",
@@ -679,7 +598,6 @@ exports.getMyOrders = catchAsync(async (req, res, next) => {
   const userId = req.user?._id;
   const orders = await Order.find({ assignedEmployeeId: userId })
   .sort({ createdAt: -1 })
-  .limit(20)
   .populate({ path: 'items.menuItem', select: 'price' });
   // get the price of each order
 

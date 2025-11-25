@@ -9,35 +9,12 @@ const ROLE_MAP = {
   "Delivery": "Delivery",
 };
 
-const TEN_MINUTES_IN_MS = 5 * 60 * 1000;
-
 // Map to keep track of timers for each order
 const orderTimers = new Map();
 
 // Runs every minute
 cron.schedule("* * * * *", async () => {
   console.log("Checking for unassigned orders...");
-
-  const cutoff = new Date(Date.now() - TEN_MINUTES_IN_MS);
-  const staleOrders = await Order.find({
-    status: "pending",
-    restaurantConfirmed: false,
-    createdAt: { $lte: cutoff },
-  });
-
-  for (const order of staleOrders) {
-    order.status = "cancelled";
-    order.updatedAt = new Date();
-    await order.save({ validateBeforeSave: false });
-
-    const timerId = orderTimers.get(order._id.toString());
-    if (timerId) {
-      clearTimeout(timerId);
-      orderTimers.delete(order._id.toString());
-    }
-
-    console.log(`Cancelled order ${order._id} due to restaurant inactivity.`);
-  }
 
   const unassignedOrders = await Order.find({ assignedEmployeeId: null, status: "pending", restaurantConfirmed: true });
 
@@ -101,10 +78,9 @@ cron.schedule("* * * * *", async () => {
             orderTimers.set(currentOrder._id.toString(), newTimer);
           }
         }
-      }, 2 * 60 * 1000); // 2 minutes
+      }, 60 * 1000); // 1 minute
 
       orderTimers.set(order._id.toString(), timer);
     }
   }
 });
-
