@@ -3,10 +3,15 @@ const AppError = require('../utils/appError');
 const APIFeatures = require('../utils/apiFeatures');
 exports.deleteOne = (Model) =>
   catchAsync(async (req, res, next) => {
-    const doc = await Model.findByIdAndDelete(req.params.id);
+    const doc = await Model.findById(req.params.id);
     if (!doc) {
       return next(new AppError('No document found with that ID', 404));
     }
+    // Prevent deleting a superadmin user
+    if (doc.role && doc.role === 'superadmin') {
+      return next(new AppError('Cannot delete a superadmin user', 403));
+    }
+    await Model.findByIdAndDelete(req.params.id);
     res.status(204).json({
       status: 'success',
       data: null,
@@ -16,6 +21,16 @@ exports.deleteOne = (Model) =>
   
 exports.updateOne = (Model) =>
   catchAsync(async (req, res, next) => {
+    // Load the document first to check role-based protections
+    const existing = await Model.findById(req.params.id).select('+password');
+    if (!existing) {
+      return next(new AppError('No document found with that ID', 404));
+    }
+
+    // If the target is a superadmin, prevent changing their `role` field only
+    if (existing.role && existing.role === 'superadmin' && Object.prototype.hasOwnProperty.call(req.body, 'role')) {
+      return next(new AppError('Cannot edit role of a superadmin user', 403));
+    }
     const doc = await Model.findByIdAndUpdate(req.params.id, req.body, {
       new: true, // return the updated document
       // runValidators: true, // run schema validators
