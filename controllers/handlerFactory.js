@@ -11,6 +11,18 @@ exports.deleteOne = (Model) =>
     if (doc.role && doc.role === 'superadmin') {
       return next(new AppError('Cannot delete a superadmin user', 403));
     }
+
+    // If deleting a User, unassign them from any restaurants they own
+    if (Model.modelName === 'User') {
+      try {
+        const Restaurant = require('../models/restaurants');
+        await Restaurant.updateMany({ ownerId: doc._id }, { $set: { ownerId: null } });
+      } catch (err) {
+        // Log the error but continue with deletion; do not block user deletion for a cascade failure
+        console.error('Error unassigning restaurants for deleted user:', err);
+      }
+    }
+
     await Model.findByIdAndDelete(req.params.id);
     res.status(204).json({
       status: 'success',

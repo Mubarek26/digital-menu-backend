@@ -125,8 +125,8 @@ const getMyRestaurants = async (req, res) => {
  */
 const assignOwner = async (req, res) => {
   try {
-    if (req.user.role !== "Manager") {
-      return res.status(403).json({ success: false, message: "Only Manager can assign owners" });
+    if (req.user.role !== "Manager" && req.user.role !== "superadmin") {
+      return res.status(403).json({ success: false, message: "Only Manager or superadmin can assign owners" });
     }
 
     const { ownerId } = req.body;
