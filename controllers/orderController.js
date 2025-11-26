@@ -53,7 +53,6 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     phoneNumber,
     alternatePhoneNumber,
     tableNumber,
-    paymentStatus,
     notes,
     location,
     restaurantId,
@@ -255,7 +254,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     restaurantId: resolvedRestaurantId,
     address,
     alternatePhoneNumber,
-    paymentStatus,
+    
     // add more fields like userId, status, timestamp if needed
   });
 
