@@ -39,7 +39,8 @@ const frontendOrigins = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL |
 const allowedOrigins = [
   ...frontendOrigins,
   'http://localhost:5173',
-  'http://127.0.0.1:5173'
+  'http://127.0.0.1:5173',
+  'https://digital-menu-backend-73fs.onrender.com/api/v1'
 ];
 
 app.use(
