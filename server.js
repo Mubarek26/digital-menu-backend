@@ -26,6 +26,29 @@ app.set('io', io);
 io.on("connection", (socket) => {
   console.log("🟢 New client connected:", socket.id);
 
+  // Allow clients to join a restaurant-specific room so emits can be targeted.
+  socket.on("joinRestaurant", (restaurantId) => {
+    try {
+      if (!restaurantId) return;
+      const room = `restaurant_${String(restaurantId)}`;
+      socket.join(room);
+      console.log(`🔔 Socket ${socket.id} joined room: ${room}`);
+    } catch (err) {
+      console.error("[server] Error joining restaurant room:", err);
+    }
+  });
+
+  socket.on("leaveRestaurant", (restaurantId) => {
+    try {
+      if (!restaurantId) return;
+      const room = `restaurant_${String(restaurantId)}`;
+      socket.leave(room);
+      console.log(`🔕 Socket ${socket.id} left room: ${room}`);
+    } catch (err) {
+      console.error("[server] Error leaving restaurant room:", err);
+    }
+  });
+
   socket.on("disconnect", () => {
     console.log("🔴 Client disconnected:", socket.id);
   });

@@ -258,15 +258,58 @@ exports.createOrder = catchAsync(async (req, res, next) => {
     // add more fields like userId, status, timestamp if needed
   });
 
+  // keep a reference to the created order document
+  let responseOrder = newOrder;
+
   const io = req.app.get("io");
   if (newOrder && io) {
-    io.emit("newOrder", {
-      message: "A new order has been placed!",
-      order: newOrder,
-    });
+    try {
+      // populate nested menuItem references so the frontend receives full objects
+      const populatedOrder = await Order.findById(newOrder._id)
+        .populate({ path: "items.menuItem", select: "name price _id" })
+        .lean();
+
+      // log the plain populated object for debugging (JSON.stringify avoids circulars)
+      console.log(
+        "[orderController] Emitting newOrder (populated plain object) to restaurant:",
+        resolvedRestaurantId,
+        JSON.stringify(populatedOrder)
+      );
+
+      // Emit only to clients subscribed to this restaurant room
+      const room = `restaurant_${String(resolvedRestaurantId)}`;
+      io.to(room).emit("newOrder", {
+        message: "A new order has been placed!",
+        order: populatedOrder,
+      });
+
+      // use the populated plain object for the response as well
+      responseOrder = populatedOrder;
+    } catch (err) {
+      // fallback: emit a plain object derived from the mongoose document
+      console.error(
+        "[orderController] Error populating/sending newOrder via socket:",
+        err
+      );
+
+      const plainOrder = newOrder.toObject ? newOrder.toObject() : JSON.parse(JSON.stringify(newOrder));
+      console.log(
+        "[orderController] Emitting newOrder (fallback plain object) to restaurant:",
+        resolvedRestaurantId,
+        JSON.stringify(plainOrder)
+      );
+
+      const room = `restaurant_${String(resolvedRestaurantId)}`;
+      io.to(room).emit("newOrder", {
+        message: "A new order has been placed!",
+        order: plainOrder,
+      });
+
+      responseOrder = plainOrder;
+    }
   }
 
-  const responseData = { order: newOrder };
+  const responseData = { order: responseOrder };
   if (deliveryDistanceKm !== null) {
     responseData.deliveryDistanceKm = deliveryDistanceKm;
   }
@@ -539,6 +582,22 @@ exports.confirmOrder = catchAsync(async (req, res, next) => {
     throw new AppError("Cannot confirm order: it may be cancelled or already confirmed", 400);
   }
 
+  // emit socket update (plain populated object)
+  try {
+    const io = req.app.get("io");
+    if (io && updated) {
+      const populated = await Order.findById(updated._id)
+        .populate({ path: "items.menuItem", select: "name price _id" })
+        .lean();
+      const targetRest = populated?.restaurantId || updated.restaurantId || resolvedRestaurantId;
+      const room = `restaurant_${String(targetRest)}`;
+      console.log("[orderController] Emitting order:updated (confirmOrder) to room:", room, JSON.stringify(populated));
+      io.to(room).emit("order:updated", { order: populated });
+    }
+  } catch (err) {
+    console.error("[orderController] Failed to emit order:updated (confirmOrder):", err);
+  }
+
   res.status(200).json({
     status: "success",
     message: "Order confirmed successfully",
@@ -547,6 +606,9 @@ exports.confirmOrder = catchAsync(async (req, res, next) => {
     },
   });
 });
+
+// real time socket 
+
 
 // Update order status
 exports.updateOrderStatus = catchAsync(async (req, res, next) => {
@@ -562,6 +624,21 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
     if (!updated) {
       throw new AppError("Cannot cancel order: it may already be completed or cancelled", 400);
     }
+    try {
+      const io = req.app.get("io");
+      if (io && updated) {
+        const populated = await Order.findById(updated._id)
+            .populate({ path: "items.menuItem", select: "name price _id" })
+            .lean();
+          const targetRest = populated?.restaurantId || updated.restaurantId;
+          const room = `restaurant_${String(targetRest)}`;
+          console.log("[orderController] Emitting order:updated (cancel) to room:", room, JSON.stringify(populated));
+          io.to(room).emit("order:updated", { order: populated });
+      }
+    } catch (err) {
+      console.error("[orderController] Failed to emit order:updated (cancel):", err);
+    }
+
     return res.status(200).json({
       status: "success",
       message: "Order status updated successfully",
@@ -590,6 +667,21 @@ if (String(status).toLowerCase() === "accepted") {
   order.status = status;
   order.updatedAt = Date.now();
   await order.save({ validateBeforeSave: false });
+  try {
+    const io = req.app.get("io");
+    if (io && order) {
+      const populated = await Order.findById(order._id)
+        .populate({ path: "items.menuItem", select: "name price _id" })
+        .lean();
+      const targetRest = populated?.restaurantId || order.restaurantId;
+      const room = `restaurant_${String(targetRest)}`;
+      console.log("[orderController] Emitting order:updated (status change) to room:", room, JSON.stringify(populated));
+      io.to(room).emit("order:updated", { order: populated });
+    }
+  } catch (err) {
+    console.error("[orderController] Failed to emit order:updated (status change):", err);
+  }
+
   res.status(200).json({
     status: "success",
     message: "Order status updated successfully",
