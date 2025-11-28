@@ -18,7 +18,7 @@ const app = require('./app');
     const { Server } = require('socket.io');
     const io = new Server(server, {
       cors: {
-        origin: "*",
+        origin: ["https://digital-menu-tau-five.vercel.app", "http://localhost:5173","http://localhost:5174"],
         methods: ['GET', 'POST'],
         credentials: true,
       },
