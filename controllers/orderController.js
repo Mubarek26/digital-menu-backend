@@ -658,7 +658,6 @@ if (String(status).toLowerCase() === "accepted") {
   }
 }
 
-
   // For other status changes, allow update
   const order = await Order.findById(req.params.id);
   if (!order) {

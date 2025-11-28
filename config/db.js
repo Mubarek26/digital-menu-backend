@@ -8,9 +8,6 @@ const connectDB = async () => {
     await mongoose.connect(process.env.DATABASE);
     await ensureSuperAdmin();
     console.log('✅ MongoDB connected!');
-
-    // Load background dispatcher AFTER successful connection
-    require('../utils/dispatcher.js');
   } catch (err) {
     console.error('❌ MongoDB connection error:', err.message);
     process.exit(1); // Stop the app if the DB connection fails
