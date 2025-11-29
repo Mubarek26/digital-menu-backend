@@ -123,7 +123,7 @@ async function handleAssignmentTimeout(orderId, employeeId) {
 // ---------------------------------------------------------------------
 // CRON JOB (EVERY 1 MINUTE)
 // ---------------------------------------------------------------------
-cron.schedule("* * * * *", async () => {
+cron.schedule("*/30 * * * * *", async () => {
   console.log("[dispatcher] checking...");
 
   // Cancel stale orders
