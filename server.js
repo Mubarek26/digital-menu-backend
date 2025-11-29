@@ -17,7 +17,7 @@ const app = require('./app');
     const { Server } = require('socket.io');
     const io = new Server(server, {
       cors: {
-        origin: ["https://digital-menu-tau-five.vercel.app", "http://localhost:5173","http://localhost:5174", "https://your-backend-name.onrender.com", "https://digital-menu-backend-73fs.onrender.com/api/v1"],
+        origin: ["https://digital-menu-tau-five.vercel.app", "http://localhost:5173","http://localhost:5174", "https://your-backend-name.onrender.com"],
         methods: ['GET', 'POST'],
         credentials: true,
       },
