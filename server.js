@@ -5,7 +5,6 @@ dotenv.config();
 
 const PORT = process.env.PORT || 5000;
 const app = require('./app');
-
 // Start server after DB connect so background jobs (dispatcher)
 // can safely access DB and socket.io without circular requires.
 (async () => {
@@ -35,7 +34,7 @@ const app = require('./app');
 
     // Load dispatcher AFTER io is available and DB is connected
     try {
-      require('./utils/dispatcher');
+      require('./utils/dispatcher')(io);
     } catch (err) {
       console.error('Failed to load dispatcher:', err);
     }
