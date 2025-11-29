@@ -1,8 +1,11 @@
 // utils/dispatcher.js
-const cron = require("node-cron");
-const User = require('../models/UserModel');
+
+module.exports = (io) => {
+
+  const cron = require("node-cron");
+  const User = require('../models/UserModel');
 const Order = require("../models/Order");
-const { io } = require('../server');
+// const { io } = require('../server');
 
 console.log('[dispatcher] loaded. io present?', !!io);
 
@@ -48,9 +51,9 @@ async function assignEmployee(order, employee) {
   const tried = orderTries.get(String(order._id)) || new Set();
   tried.add(String(employee._id));
   orderTries.set(String(order._id), tried);
-
+  
   const fresh = await Order.findById(order._id).lean();
-
+  
   console.log(`[dispatcher] → assigned order ${order._id} to ${employee._id}`);
 
   io.to(String(employee._id)).emit('order_assigned', {
@@ -130,11 +133,11 @@ cron.schedule("* * * * *", async () => {
     restaurantConfirmed: false,
     createdAt: { $lte: cutoff },
   });
-
+  
   for (const order of staleOrders) {
     order.status = "cancelled";
     await order.save({ validateBeforeSave: false });
-
+    
     if (orderTimers.has(String(order._id))) {
       clearTimeout(orderTimers.get(String(order._id)));
       orderTimers.delete(String(order._id));
@@ -155,9 +158,10 @@ cron.schedule("* * * * *", async () => {
       role: ROLE_MAP[order.orderType],
       status: "available"
     }).sort({ last_assigned_at: 1 });
-
+    
     if (employee) {
       await assignEmployee(order, employee);
     }
   }
 });
+}
