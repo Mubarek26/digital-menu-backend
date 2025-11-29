@@ -164,6 +164,6 @@ cron.schedule("*/30 * * * * *", async () => {
     }
   }
 });
-}
 module.exports.orderTries = orderTries;
 module.exports.orderTimers = orderTimers;
+}
