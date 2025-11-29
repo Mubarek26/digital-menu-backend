@@ -137,7 +137,7 @@ cron.schedule("*/30 * * * * *", async () => {
   for (const order of staleOrders) {
     order.status = "cancelled";
     await order.save({ validateBeforeSave: false });
-    
+    orderTries.delete(String(order._id));
     if (orderTimers.has(String(order._id))) {
       clearTimeout(orderTimers.get(String(order._id)));
       orderTimers.delete(String(order._id));
@@ -165,3 +165,5 @@ cron.schedule("*/30 * * * * *", async () => {
   }
 });
 }
+module.exports.orderTries = orderTries;
+module.exports.orderTimers = orderTimers;
