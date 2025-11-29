@@ -22,6 +22,9 @@ const app = require('./app');
         methods: ['GET', 'POST'],
         credentials: true,
       },
+      pingInterval: 25000,
+      pingTimeout: 6000,
+      allowEIO3: true,
     });
 
     // Attach io to express so controllers can use it
