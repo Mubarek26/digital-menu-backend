@@ -1,17 +1,14 @@
 const express = require("express");
-const { getTotalOrders, getCompletedOrdersCount, getCancelledOrdersCount, getTotalRevenue, getWeightedActiveUsers, getTopOrderedItemsByName, getDailySalesOverview, getTopRestaurants, getOrdersDistribution } = require("../controllers/analyticsController");
+const { getDashboardStats, getTopOrderedItemsByName, getSalesOverview, getTopRestaurants, getOrdersDistribution, getRestaurantNames } = require("../controllers/analyticsController");
 
 const router = express.Router();
 
-router.get("/total-orders", getTotalOrders);
-router.get("/completed-orders", getCompletedOrdersCount);
-router.get("/cancelled-orders", getCancelledOrdersCount);
-router.get("/total-revenue", getTotalRevenue);
-router.get("/active-users", getWeightedActiveUsers);
+router.get("/overview", getDashboardStats);
 router.get("/top-ordered-items", getTopOrderedItemsByName);
-router.get("/sales-overview", getDailySalesOverview);
+router.get("/sales-overview", getSalesOverview);
 router.get("/top-restaurants", getTopRestaurants);
-router.get("/orders-distribution", getOrdersDistribution)
+router.get("/orders-distribution", getOrdersDistribution);
+router.get("/restaurant-names", getRestaurantNames);
 
 
 
