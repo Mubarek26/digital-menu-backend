@@ -1,15 +1,17 @@
 const express = require("express");
 const { getDashboardStats, getTopOrderedItemsByName, getSalesOverview, getTopRestaurants, getOrdersDistribution, getRestaurantNames } = require("../controllers/analyticsController");
+const authController = require("../controllers/authController");
+const restrictToRoles = require("../middlewares/restrictToRoles");
+const restrictToSuperadmin = require("../middlewares/restrictToSuperadmin");
 
 const router = express.Router();
 
-router.get("/overview", getDashboardStats);
-router.get("/top-ordered-items", getTopOrderedItemsByName);
-router.get("/sales-overview", getSalesOverview);
-router.get("/top-restaurants", getTopRestaurants);
-router.get("/orders-distribution", getOrdersDistribution);
-router.get("/restaurant-names", getRestaurantNames);
-
+router.get("/overview", authController.protect, restrictToRoles, getDashboardStats);
+router.get("/top-ordered-items", authController.protect, restrictToRoles, getTopOrderedItemsByName);
+router.get("/sales-overview", authController.protect, restrictToRoles, getSalesOverview);
+router.get("/top-restaurants", authController.protect, restrictToSuperadmin , getTopRestaurants);
+router.get("/orders-distribution", authController.protect, restrictToRoles, getOrdersDistribution);
+router.get("/restaurant-names", authController.protect, restrictToSuperadmin, getRestaurantNames);
 
 
 module.exports = router;

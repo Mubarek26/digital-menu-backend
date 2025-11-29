@@ -18,33 +18,35 @@ const getDashboardStats = catchAsync(async (req, res) => {
   const days = req.query.days || "all";
   const sinceFilter = buildSinceFilter(days);
 
-  // Combine with restaurant filter
-  const restaurantId = req.query.restaurant || "all";
+  // Base match filter
   const matchFilter = { ...sinceFilter };
 
-  if (restaurantId && restaurantId !== "all") {
-    if (mongoose.Types.ObjectId.isValid(restaurantId)) {
+  // Apply restaurant filtering if the user is an owner
+  if (req.ownerRestaurantIds) {
+    matchFilter.restaurantId = { $in: req.ownerRestaurantIds };
+  } else {
+    // Superadmin → optional restaurant query filter
+    const restaurantId = req.query.restaurant;
+    if (restaurantId && restaurantId !== "all") {
+      if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid restaurant ID" });
+      }
       matchFilter.restaurantId = new mongoose.Types.ObjectId(restaurantId);
-    } else {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid restaurant ID" });
     }
   }
 
   // Orders
   const totalOrders = await Order.countDocuments({ ...matchFilter });
-
   const completedOrders = await Order.countDocuments({
     status: "completed",
     ...matchFilter,
   });
-
   const cancelledOrders = await Order.countDocuments({
     status: "cancelled",
     ...matchFilter,
   });
-
   const pendingOrders = await Order.countDocuments({
     status: "pending",
     ...matchFilter,
@@ -55,7 +57,6 @@ const getDashboardStats = catchAsync(async (req, res) => {
     { $match: { status: "completed", ...matchFilter } },
     { $group: { _id: null, totalRevenue: { $sum: "$totalPrice" } } },
   ]);
-
   const totalRevenue = revenueResult[0]?.totalRevenue || 0;
 
   // Weighted active users
@@ -99,6 +100,7 @@ const getDashboardStats = catchAsync(async (req, res) => {
 });
 
 
+
 /* ------------------------------------------------------------------------ */
 /*                        TOP ORDERED ITEMS                                 */
 /* ------------------------------------------------------------------------ */
@@ -106,24 +108,29 @@ const getTopOrderedItemsByName = catchAsync(async (req, res) => {
   const days = req.query.days || "all";
   const sinceFilter = buildSinceFilter(days);
 
-    // Combine with restaurant filter
-  const restaurantId = req.query.restaurant || "all";
+  // Base match filter
   const matchFilter = { ...sinceFilter };
- if (restaurantId && restaurantId !== "all") {
-    if (mongoose.Types.ObjectId.isValid(restaurantId)) {
-        matchFilter.restaurantId = new mongoose.Types.ObjectId(restaurantId);
-    } else {
-        return res.status(400).json({ success: false, message: "Invalid restaurant ID" });
-    }
-}
 
+  // Apply restaurant filtering if user is an owner
+  if (req.ownerRestaurantIds) {
+    matchFilter.restaurantId = { $in: req.ownerRestaurantIds };
+  } else {
+    // Superadmin → optional restaurant filter
+    const restaurantId = req.query.restaurant;
+    if (restaurantId && restaurantId !== "all") {
+      if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid restaurant ID" });
+      }
+      matchFilter.restaurantId = new mongoose.Types.ObjectId(restaurantId);
+    }
+  }
 
   const topItems = await Order.aggregate([
-    { $match: { ...matchFilter } },
+    { $match: matchFilter },
     { $unwind: "$items" },
-    {
-      $group: { _id: "$items.name", totalOrdered: { $sum: "$items.quantity" } },
-    },
+    { $group: { _id: "$items.name", totalOrdered: { $sum: "$items.quantity" } } },
     { $sort: { totalOrdered: -1 } },
     { $limit: 10 },
     { $project: { _id: 0, name: "$_id", totalOrdered: 1 } },
@@ -132,6 +139,7 @@ const getTopOrderedItemsByName = catchAsync(async (req, res) => {
   res.status(200).json({ success: true, data: topItems });
 });
 
+
 /* ------------------------------------------------------------------------ */
 /*                            SALES OVERVIEW                                */
 /* ------------------------------------------------------------------------ */
@@ -139,17 +147,24 @@ const getSalesOverview = catchAsync(async (req, res) => {
   const days = req.query.days || "all";
   const sinceFilter = buildSinceFilter(days);
 
-    // Combine with restaurant filter
-  const restaurantId = req.query.restaurant || "all";
+  // Base match filter
   const matchFilter = { ...sinceFilter };
- if (restaurantId && restaurantId !== "all") {
-    if (mongoose.Types.ObjectId.isValid(restaurantId)) {
-        matchFilter.restaurantId = new mongoose.Types.ObjectId(restaurantId);
-    } else {
-        return res.status(400).json({ success: false, message: "Invalid restaurant ID" });
-    }
-}
 
+  // Apply restaurant filtering if user is an owner
+  if (req.ownerRestaurantIds) {
+    matchFilter.restaurantId = { $in: req.ownerRestaurantIds };
+  } else {
+    // Superadmin → optional restaurant filter
+    const restaurantId = req.query.restaurant;
+    if (restaurantId && restaurantId !== "all") {
+      if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid restaurant ID" });
+      }
+      matchFilter.restaurantId = new mongoose.Types.ObjectId(restaurantId);
+    }
+  }
 
   const dailyOrders = await Order.aggregate([
     { $match: { status: "completed", ...matchFilter } },
@@ -165,6 +180,7 @@ const getSalesOverview = catchAsync(async (req, res) => {
 
   res.status(200).json({ success: true, dailyOrders });
 });
+
 
 /* ------------------------------------------------------------------------ */
 /*                          TOP RESTAURANTS                                 */
@@ -193,52 +209,63 @@ const getTopRestaurants = catchAsync(async (req, res) => {
   res.status(200).json({ success: true, data: topRestaurants });
 });
 
+
+
 /* ------------------------------------------------------------------------ */
 /*                        ORDERS DISTRIBUTION                               */
 /* ------------------------------------------------------------------------ */
-const getOrdersDistribution = catchAsync(async (req, res) => {
+const getOrdersDistribution = catchAsync(async (req, res, next) => {
   const type = req.query.type || "status";
+
   if (!["status", "paymentStatus"].includes(type)) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid type. Use 'status' or 'paymentStatus'.",
-    });
+    return next(new AppError("Invalid type. Use 'status' or 'paymentStatus'.", 400));
   }
 
   const days = req.query.days || "all";
-  
-  // Build filter for date range
   const sinceFilter = buildSinceFilter(days);
-  
-  // Combine with restaurant filter
-  const restaurantId = req.query.restaurant || "all";
+
   const matchFilter = { ...sinceFilter };
- if (restaurantId && restaurantId !== "all") {
-    if (mongoose.Types.ObjectId.isValid(restaurantId)) {
-        matchFilter.restaurantId = new mongoose.Types.ObjectId(restaurantId);
-    } else {
-        return res.status(400).json({ success: false, message: "Invalid restaurant ID" });
+
+  // ============================
+  // ROLE-BASED RESTAURANT FILTER
+  // ============================
+
+  if (req.ownerRestaurantIds) {
+    // Owner → restrict to their restaurants
+    matchFilter.restaurantId = { $in: req.ownerRestaurantIds };
+  } else {
+    // Superadmin → optional filter by query
+    const restaurantId = req.query.restaurant;
+    if (restaurantId && restaurantId !== "all") {
+      if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+        return next(new AppError("Invalid restaurant ID", 400));
+      }
+      matchFilter.restaurantId = new mongoose.Types.ObjectId(restaurantId);
     }
-}
+  }
 
-
+  // ============================
+  // AGGREGATION
+  // ============================
   const distribution = await Order.aggregate([
     { $match: matchFilter },
     { $group: { _id: `$${type}`, count: { $sum: 1 } } },
     { $sort: { count: -1 } },
   ]);
 
-  res.status(200).json({ success: true, data: distribution });
+  res.status(200).json({
+    success: true,
+    data: distribution,
+  });
 });
-
 
 /* ------------------------------------------------------------------------ */
 /*                        RESTAURANTS NAMES                               */
 /* ------------------------------------------------------------------------ */
 
 const getRestaurantNames = catchAsync(async (req, res) => {
-  const restaurants = await Restaurant.find({}, { _id: 1, name: 1 })
-    .sort({ name: 1 }); // A → Z
+  // Fetch all restaurants
+  const restaurants = await Restaurant.find({}, { _id: 1, name: 1 }).sort({ name: 1 });
 
   res.status(200).json({
     success: true,
@@ -246,8 +273,6 @@ const getRestaurantNames = catchAsync(async (req, res) => {
     data: restaurants,
   });
 });
-
-
 
 /* ------------------------------------------------------------------------ */
 
