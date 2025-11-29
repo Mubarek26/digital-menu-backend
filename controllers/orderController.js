@@ -7,6 +7,7 @@ const Setting = require("../models/Setting");
 const mongoose = require("mongoose");
 const generateOrderId = require("../utils/generateOrderId");
 const calculateDeliveryFee = require("../utils/calculateDeliveryFee");
+const { orderTries, orderTimers } = require("../utils/dispatcher");
 
 const parseNumeric = (value) => {
   const parsed = Number(value);
@@ -666,6 +667,12 @@ if (String(status).toLowerCase() === "accepted") {
   order.status = status;
   order.updatedAt = Date.now();
   await order.save({ validateBeforeSave: false });
+  orderTries.delete(String(order._id));
+if (orderTimers.has(String(order._id))) {
+  clearTimeout(orderTimers.get(String(order._id)));
+  orderTimers.delete(String(order._id));
+}
+
   try {
     const io = req.app.get("io");
     if (io && order) {
