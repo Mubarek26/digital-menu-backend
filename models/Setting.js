@@ -49,7 +49,10 @@ const settingSchema = new mongoose.Schema(
     is_open: { type: Boolean, default: true }, // manual override
     currency: { type: String, default: "ETB" },
     min_order_amount: { type: Number, default: 100 },
-    delivery_fee: { type: Number, default: 50 },
+    delivery_fee: { type: Number, default: 10000 },
+    delivery_per_km_rate: { type: Number, default: 10 },
+    max_delivery_distance_km: { type: Number, default: 2000 },
+    service_fee: { type: Number, default: 10 },
     tax_rate: { type: Number, default: 0.15 },
 
     payment_methods: {

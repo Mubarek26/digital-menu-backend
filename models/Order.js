@@ -38,6 +38,10 @@ const orderSchema = new mongoose.Schema({
     type: String,
     required: true, // phone number is required for contact
   },
+  alternatePhoneNumber: {
+    type: String,
+    default: null, // optional alternate phone number
+  },
   orderType: {
     type: String,
     enum: ["Dine-In", "Takeaway", "Delivery"],
@@ -47,6 +51,26 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     required: true, // total price of the order
     min: 0,
+  },
+  subtotal: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  deliveryFee: {
+    type: Number,
+    default: 0, // default delivery fee is 0
+    min: 0,
+  },
+  serviceFee: {
+    type: Number,
+    default: 0, // default service fee is 0
+    min: 0,
+  },
+  deliveryDistanceKm: {
+    type: Number,
+    min: 0,
+    default: null,
   },
   paymentStatus: {
     type: String,
@@ -80,14 +104,18 @@ const orderSchema = new mongoose.Schema({
     type: {
       type: String,
       enum: ["Point"],
-      // required: true,
+      required: true,
     },
   
     coordinates: {
       type: [Number],
       // required: true,
     },
-    orderId:String
+  },
+  orderId: {
+    type: String,
+    required: true,
+    unique: true,
   },
 });
 
