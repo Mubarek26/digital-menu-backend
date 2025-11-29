@@ -34,7 +34,8 @@ const app = require('./app');
 
     // Load dispatcher AFTER io is available and DB is connected
     try {
-      require('./utils/dispatcher')(io);
+     const { dispatcher } = require("./utils/dispatcher");
+      dispatcher(io);
     } catch (err) {
       console.error('Failed to load dispatcher:', err);
     }
