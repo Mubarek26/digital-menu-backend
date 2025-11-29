@@ -1,5 +1,3 @@
-// db.js
-
 const mongoose = require("mongoose");
 require("dotenv").config();
 const ensureSuperAdmin = require("../utils/ensureSuperAdmin");
