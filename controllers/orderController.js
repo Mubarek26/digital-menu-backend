@@ -651,6 +651,11 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
  
 if (String(status).toLowerCase() === "accepted") {
   const order = await Order.findById(req.params.id);
+    orderTries.delete(String(order._id));
+if (orderTimers.has(String(order._id))) {
+  clearTimeout(orderTimers.get(String(order._id)));
+  orderTimers.delete(String(order._id));
+}
   if (!order) {
     throw new AppError("Order not found", 404);
   }
@@ -667,11 +672,7 @@ if (String(status).toLowerCase() === "accepted") {
   order.status = status;
   order.updatedAt = Date.now();
   await order.save({ validateBeforeSave: false });
-  orderTries.delete(String(order._id));
-if (orderTimers.has(String(order._id))) {
-  clearTimeout(orderTimers.get(String(order._id)));
-  orderTimers.delete(String(order._id));
-}
+
 
   try {
     const io = req.app.get("io");
