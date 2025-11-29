@@ -1,3 +1,8 @@
+
+
+
+
+
 const nodemailer = require('nodemailer');
 const sendEmail = async (options) => {
     // create a transporter
@@ -13,7 +18,7 @@ const sendEmail = async (options) => {
     })
     // define the email options
     const mailOptions = { 
-        from: 'Menuverse' ,
+        from: 'Saro Delivery <no-reply@sarodelivery.com>',
         to: options.email,
         subject: options.subject,
         text: options.message,
