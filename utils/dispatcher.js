@@ -1,10 +1,12 @@
 // utils/dispatcher.js
+
+
 const cron = require("node-cron");
 const User = require('../models/UserModel');
 const Order = require("../models/Order");
-const { io } = require('../server');
 
-console.log('[dispatcher] loaded. io present?', !!io);
+console.log('[dispatcher] loading...');
+
 
 const ROLE_MAP = {
   "Dine-In": "Waiter",
@@ -12,19 +14,19 @@ const ROLE_MAP = {
   "Delivery": "Delivery",
 };
 
-// 5 minutes
+
 const TEN_MINUTES_IN_MS = 5 * 60 * 1000;
 
-// Track timers per order
+// GLOBAL state shared across the entire backend
 const orderTimers = new Map();
-// Track employees already assigned
+
 const orderTries = new Map();
 
 // ---------------------------------------------------------------------
 // SAFE TIMER SET
 // ---------------------------------------------------------------------
 function setSafeTimeout(orderId, employeeId) {
-  // Clear previous timer if exists
+
   if (orderTimers.has(String(orderId))) {
     clearTimeout(orderTimers.get(String(orderId)));
   }
@@ -44,7 +46,7 @@ async function assignEmployee(order, employee) {
   employee.last_assigned_at = new Date();
   await employee.save({ validateBeforeSave: false });
 
-  // Track tried employees
+
   const tried = orderTries.get(String(order._id)) || new Set();
   tried.add(String(employee._id));
   orderTries.set(String(order._id), tried);
@@ -53,11 +55,10 @@ async function assignEmployee(order, employee) {
 
   console.log(`[dispatcher] → assigned order ${order._id} to ${employee._id}`);
 
-  io.to(String(employee._id)).emit('order_assigned', {
-    order: fresh
-  });
 
-  // Start new timer
+  io.to(String(employee._id)).emit('order_assigned', { order: fresh });
+
+
   setSafeTimeout(order._id, employee._id);
 }
 
@@ -69,18 +70,17 @@ async function handleAssignmentTimeout(orderId, employeeId) {
     const order = await Order.findById(orderId);
     if (!order) return;
 
-    // If already accepted or reassigned, ignore
+
     if (order.status !== 'pending' || String(order.assignedEmployeeId) !== String(employeeId)) {
       return;
     }
 
     console.log(`[dispatcher] Employee ${employeeId} missed timeout on order ${orderId}`);
 
-    io.to(String(employeeId)).emit('order_unassigned', {
-      orderId
-    });
 
-    // Remove assignment
+    io.to(String(employeeId)).emit('order_unassigned', { orderId });
+
+
     order.assignedEmployeeId = null;
     await order.save();
 
@@ -88,14 +88,16 @@ async function handleAssignmentTimeout(orderId, employeeId) {
 
     const tried = orderTries.get(String(order._id)) || new Set();
 
-    // Find next available employee
+
+
     let nextEmployee = await User.findOne({
       role: ROLE_MAP[order.orderType],
       status: 'available',
       _id: { $nin: [...tried] }
     }).sort({ last_assigned_at: 1 });
 
-    // No employee available → reset tries → broadcast availability
+
+
     if (!nextEmployee) {
       console.log(`[dispatcher] No available employees for ${orderId}. Broadcasting...`);
 
@@ -104,12 +106,14 @@ async function handleAssignmentTimeout(orderId, employeeId) {
 
       io.emit('order_available_global', { orderId, order });
 
-      // Reset tried list so assignment works next time
+
+
       orderTries.delete(String(order._id));
       return;
     }
 
-    // Assign to next employee
+
+
     await assignEmployee(order, nextEmployee);
 
   } catch (err) {
@@ -118,46 +122,58 @@ async function handleAssignmentTimeout(orderId, employeeId) {
 }
 
 // ---------------------------------------------------------------------
-// CRON JOB (EVERY 1 MINUTE)
+
+// START DISPATCHER (REQUIRES IO)
 // ---------------------------------------------------------------------
-cron.schedule("* * * * *", async () => {
-  console.log("[dispatcher] checking...");
+function dispatcher(ioInstance) {
+  io = ioInstance;
 
-  // Cancel stale orders
-  const cutoff = new Date(Date.now() - TEN_MINUTES_IN_MS);
-  const staleOrders = await Order.find({
-    status: "pending",
-    restaurantConfirmed: false,
-    createdAt: { $lte: cutoff },
-  });
+  cron.schedule("*/30 * * * * *", async () => {
+    console.log("[dispatcher] checking...");
 
-  for (const order of staleOrders) {
-    order.status = "cancelled";
-    await order.save({ validateBeforeSave: false });
+    const cutoff = new Date(Date.now() - TEN_MINUTES_IN_MS);
+    const staleOrders = await Order.find({
+      status: "pending",
+      restaurantConfirmed: false,
+      createdAt: { $lte: cutoff },
+    });
 
-    if (orderTimers.has(String(order._id))) {
-      clearTimeout(orderTimers.get(String(order._id)));
-      orderTimers.delete(String(order._id));
+    for (const order of staleOrders) {
+      order.status = "cancelled";
+      await order.save({ validateBeforeSave: false });
+
+      orderTries.delete(String(order._id));
+
+      if (orderTimers.has(String(order._id))) {
+        clearTimeout(orderTimers.get(String(order._id)));
+        orderTimers.delete(String(order._id));
+      }
+
+      console.log(`Cancelled order ${order._id} due to restaurant inactivity`);
     }
 
-    console.log(`Cancelled order ${order._id} due to restaurant inactivity`);
-  }
+    const unassigned = await Order.find({
+      status: "pending",
+      assignedEmployeeId: null,
+      restaurantConfirmed: true,
+    });
 
-  // Assign unassigned orders
-  const unassigned = await Order.find({
-    status: "pending",
-    assignedEmployeeId: null,
-    restaurantConfirmed: true,
-  });
+    for (const order of unassigned) {
+      const employee = await User.findOne({
+        role: ROLE_MAP[order.orderType],
+        status: "available"
+      }).sort({ last_assigned_at: 1 });
 
-  for (const order of unassigned) {
-    const employee = await User.findOne({
-      role: ROLE_MAP[order.orderType],
-      status: "available"
-    }).sort({ last_assigned_at: 1 });
-
-    if (employee) {
-      await assignEmployee(order, employee);
+      if (employee) {
+        await assignEmployee(order, employee);
+      }
     }
-  }
-});
+  });
+}
+
+// Export correctly
+module.exports = {
+  dispatcher,
+  orderTimers,
+  orderTries
+};
