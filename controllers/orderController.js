@@ -9,6 +9,9 @@ const generateOrderId = require("../utils/generateOrderId");
 const calculateDeliveryFee = require("../utils/calculateDeliveryFee");
 const { orderTries, orderTimers } = require("../utils/dispatcher");
 
+const { orderTries, orderTimers } = require("../utils/dispatcher");
+
+
 const parseNumeric = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
@@ -651,11 +654,15 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
  
 if (String(status).toLowerCase() === "accepted") {
   const order = await Order.findById(req.params.id);
+
     orderTries.delete(String(order._id));
 if (orderTimers.has(String(order._id))) {
   clearTimeout(orderTimers.get(String(order._id)));
   orderTimers.delete(String(order._id));
 }
+
+
+
   if (!order) {
     throw new AppError("Order not found", 404);
   }
