@@ -31,12 +31,16 @@ const orderSchema = new mongoose.Schema({
 
   status: {
     type: String,
-    enum: ["pending", "preparing", "ready", "completed", "cancelled"],
+    enum: ["pending", "preparing", "ready", "completed","accepted", "cancelled"],
     default: "pending",
   },
   phoneNumber: {
     type: String,
     required: true, // phone number is required for contact
+  },
+  alternatePhoneNumber: {
+    type: String,
+    default: null, // optional alternate phone number
   },
   orderType: {
     type: String,
@@ -47,6 +51,26 @@ const orderSchema = new mongoose.Schema({
     type: Number,
     required: true, // total price of the order
     min: 0,
+  },
+  subtotal: {
+    type: Number,
+    default: 0,
+    min: 0,
+  },
+  deliveryFee: {
+    type: Number,
+    default: 0, // default delivery fee is 0
+    min: 0,
+  },
+  serviceFee: {
+    type: Number,
+    default: 0, // default service fee is 0
+    min: 0,
+  },
+  deliveryDistanceKm: {
+    type: Number,
+    min: 0,
+    default: null,
   },
   paymentStatus: {
     type: String,
@@ -62,18 +86,36 @@ const orderSchema = new mongoose.Schema({
     default: null, // ID of the employee assigned to this order
     ref: "User", // Assuming you have a User model for employees
   },
+  restaurantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Restaurant",
+    required: true,
+  },
+  restaurantConfirmed: {
+    type: Boolean,
+    default: false,
+  },
+    address: {
+      type: String,
+      // required: true,
+    },
   
   location: {
     type: {
       type: String,
       enum: ["Point"],
-      // required: true,
+      required: true,
     },
+  
     coordinates: {
       type: [Number],
       // required: true,
     },
-    orderId:String
+  },
+  orderId: {
+    type: String,
+    required: true,
+    unique: true,
   },
 });
 

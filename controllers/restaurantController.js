@@ -22,6 +22,20 @@ const createRestaurant = async (req, res) => {
       payload.tags = payload.tags.split(",").map((t) => t.trim()).filter(Boolean);
     }
 
+    // Map flat contact fields from the client to the nested schema shape
+    // (frontend may submit contactEmail / contactPhone)
+    if (payload.contactEmail || payload.contactPhone) {
+      payload.contact = payload.contact || {};
+      if (payload.contactEmail) {
+        payload.contact.email = payload.contactEmail;
+        delete payload.contactEmail;
+      }
+      if (payload.contactPhone) {
+        payload.contact.phone = payload.contactPhone;
+        delete payload.contactPhone;
+      }
+    }
+
     // Basic validation: ensure name exists
     if (!payload.name || (typeof payload.name === 'string' && payload.name.trim() === '')) {
       return res.status(400).json({
@@ -69,7 +83,7 @@ const createRestaurant = async (req, res) => {
  */
 const getAllRestaurants = async (req, res) => {
   try {
-    const restaurants = await Restaurant.find().populate("ownerId", "name email");
+    const restaurants = await Restaurant.find().populate("ownerId", "name email phoneNumber");
     res.status(200).json({ success: true, restaurants });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -81,11 +95,26 @@ const getAllRestaurants = async (req, res) => {
  */
 const getRestaurantById = async (req, res) => {
   try {
-    const restaurant = await Restaurant.findById(req.params.id).populate("ownerId", "name email");
+    const restaurant = await Restaurant.findById(req.params.id).populate("ownerId", "name email phoneNumber");
     if (!restaurant)
       return res.status(404).json({ success: false, message: "Restaurant not found" });
 
     res.status(200).json({ success: true, restaurant });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+
+// get my restaurants for owner
+// get my restaurants for owner
+const getMyRestaurants = async (req, res) => {
+  try {
+    if (req.user.role !== "Owner") {
+      return res.status(403).json({ success: false, message: "Only owners can access their restaurants" });
+    }
+    const restaurants = await Restaurant.find({ ownerId: req.user._id }).populate("ownerId", "name email phoneNumber");
+    res.status(200).json({ success: true, restaurants });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -96,8 +125,8 @@ const getRestaurantById = async (req, res) => {
  */
 const assignOwner = async (req, res) => {
   try {
-    if (req.user.role !== "superadmin") {
-      return res.status(403).json({ success: false, message: "Only admins can assign owners" });
+    if (req.user.role !== "Manager" && req.user.role !== "superadmin") {
+      return res.status(403).json({ success: false, message: "Only Manager or superadmin can assign owners" });
     }
 
     const { ownerId } = req.body;
@@ -113,10 +142,20 @@ const assignOwner = async (req, res) => {
     if (restaurant.ownerId) {
       return res.status(400).json({ success: false, message: "Restaurant already has an owner" });
     }
+    // check the owner has assigned to other restaurant 
+    const existingRestaurant= await Restaurant.findOne({ownerId})
+    if(existingRestaurant){
+      return res.status(400).json({
+        success:false,
+        message:"This owner is already assigned to another restaurant!",
+      })
+    }
 
     restaurant.ownerId = ownerId;
     restaurant.status = "active"; // optional: activate when assigned
     await restaurant.save();
+    // populate owner info before returning so frontend has name/email/phone
+    await restaurant.populate("ownerId", "name email phoneNumber");
 
     res.status(200).json({
       success: true,
@@ -138,8 +177,8 @@ const updateRestaurant = async (req, res) => {
       return res.status(404).json({ success: false, message: "Restaurant not found" });
 
     if (
-      restaurant.ownerId?.toString() !== req.user._id.toString() &&
-      req.user.role !== "superadmin"
+      // restaurant.ownerId?.toString() !== req.user._id.toString() &&
+      req.user.role !== "Manager"
     ) {
       return res.status(403).json({
         success: false,
@@ -182,6 +221,13 @@ const updateRestaurant = async (req, res) => {
         type: "Point",
         coordinates: [parseFloat(req.body.longitude), parseFloat(req.body.latitude)],
       };
+    }
+
+    // Map flat contact fields when updating (support contactEmail/contactPhone)
+    if (req.body.contactEmail || req.body.contactPhone) {
+      restaurant.contact = restaurant.contact || {};
+      if (req.body.contactEmail) restaurant.contact.email = req.body.contactEmail;
+      if (req.body.contactPhone) restaurant.contact.phone = req.body.contactPhone;
     }
 
     // Apply remaining body fields
@@ -235,4 +281,6 @@ module.exports = {
   assignOwner,
   updateRestaurant,
   deleteRestaurant,
+  getMyRestaurants
 };
+

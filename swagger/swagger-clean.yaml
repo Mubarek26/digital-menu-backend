@@ -149,6 +149,30 @@ components:
           type: array
           items:
             type: object
+        phoneNumber:
+          type: string
+        restaurantId:
+          oneOf:
+            - type: string
+            - type: object
+              properties:
+                _id:
+                  type: string
+                name:
+                  type: string
+                address:
+                  type: string
+        assignedEmployeeId:
+          oneOf:
+            - type: string
+            - type: object
+              properties:
+                _id:
+                  type: string
+                name:
+                  type: string
+                phoneNumber:
+                  type: string
         totalPrice:
           type: number
         status:
@@ -156,6 +180,23 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    PricingSettings:
+      type: object
+      properties:
+        delivery_fee:
+          type: number
+          description: Base delivery fee applied to every order
+        delivery_per_km_rate:
+          type: number
+          description: Additional fee charged per kilometre travelled
+        max_delivery_distance_km:
+          type: number
+          nullable: true
+          description: Maximum delivery distance allowed (null means unlimited)
+        service_fee:
+          type: number
+          description: Additional service fee applied to orders
 
     PaymentInit:
       type: object
@@ -307,6 +348,27 @@ paths:
       responses:
         '201':
           description: Created
+
+  /settings/pricing:
+    get:
+      summary: Get delivery pricing settings
+      tags: [Settings]
+      responses:
+        '200':
+          description: Pricing settings fetched successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Pricing settings retrieved successfully
+                  data:
+                    $ref: '#/components/schemas/PricingSettings'
           content:
             application/json:
               schema:
@@ -404,6 +466,64 @@ paths:
         '404':
           $ref: '#/components/schemas/ErrorResponse'
 
+  /menu/getByRestaurant:
+    get:
+      summary: Get menu items for the authenticated user's restaurant (Owner) or scoped view
+      tags: [Menu]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      menuItems:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MenuItem'
+        '404':
+          $ref: '#/components/schemas/ErrorResponse'
+
+  /menu/getrestaurantMenu/{restaurantId}:
+    get:
+      summary: Get menu items by restaurant ID (public)
+      tags: [Menu]
+      parameters:
+        - name: restaurantId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      menuItems:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MenuItem'
+        '404':
+          $ref: '#/components/schemas/ErrorResponse'
+
   /restaurants:
     get:
       summary: List restaurants
@@ -489,6 +609,29 @@ paths:
                   restaurant:
                     $ref: '#/components/schemas/Restaurant'
         '400':
+          $ref: '#/components/schemas/ErrorResponse'
+
+  /restaurants/my:
+    get:
+      summary: Get restaurants for the authenticated owner
+      tags: [Restaurants]
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  restaurants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Restaurant'
+        '401':
           $ref: '#/components/schemas/ErrorResponse'
 
   /restaurants/{id}:
@@ -581,6 +724,44 @@ paths:
       responses:
         '200':
           description: Deleted
+        '404':
+          $ref: '#/components/schemas/ErrorResponse'
+
+  /restaurants/{id}/assignOwner:
+    put:
+      summary: Assign an owner to a restaurant (admin only)
+      tags: [Restaurants]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ownerId:
+                  type: string
+      responses:
+        '200':
+          description: Owner assigned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  restaurant:
+                    $ref: '#/components/schemas/Restaurant'
+        '400':
+          $ref: '#/components/schemas/ErrorResponse'
         '404':
           $ref: '#/components/schemas/ErrorResponse'
 
@@ -715,29 +896,49 @@ paths:
               type: object
               required: [orderType, phoneNumber, items]
               properties:
-                orderType:
-                  type: string
-                  example: Dine-In
-                phoneNumber:
-                  type: string
-                  example: "0912345678"
-                tableNumber:
-                  type: integer
-                  example: 5
-                notes:
-                  type: string
-                items:
-                  type: array
-                  items:
+                  orderType:
+                    type: string
+                    example: Dine-In
+                  phoneNumber:
+                    type: string
+                    example: "0912345678"
+                  tableNumber:
+                    type: string
+                    example: "5"
+                  paymentStatus:
+                    type: string
+                    example: paid
+                  notes:
+                    type: string
+                  location:
                     type: object
-                    required: [_id, quantity]
                     properties:
-                      _id:
-                        type: string
-                        example: "689ce084cf0096df9586beb2"
-                      quantity:
-                        type: integer
-                        example: 2
+                      lng:
+                        type: number
+                        example: 38.75
+                      lat:
+                        type: number
+                        example: 9.03
+                  restaurantId:
+                    type: string
+                    example: "rest123"
+                  address:
+                    type: string
+                  totalPrice:
+                    type: number
+                    example: 250.5
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [_id, quantity]
+                      properties:
+                        _id:
+                          type: string
+                          example: "689ce084cf0096df9586beb2"
+                        quantity:
+                          type: integer
+                          example: 2
       responses:
         '201':
           description: Created
@@ -748,6 +949,10 @@ paths:
                 properties:
                   status:
                     type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Order created successfully
                   data:
                     type: object
                     properties:
@@ -838,6 +1043,44 @@ paths:
       responses:
         '200':
           description: OK
+
+  /order/recent-orders:
+    post:
+      summary: Get recent orders for a phone number
+      tags: [Orders]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phoneNumber:
+                  type: string
+                  example: "0912345678"
+      responses:
+        '200':
+          description: Recent orders retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Recent orders retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      orders:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Order'
+        '404':
+          $ref: '#/components/schemas/ErrorResponse'
 
   /payment/initializePayment:
     post:

@@ -215,6 +215,10 @@ tags:
                       type: number
                     lat:
                       type: number
+							 restaurantId:
+								 type: string
+							 totalPrice:
+								 type: number
       responses:
         '201':
           description: Created
@@ -225,6 +229,10 @@ tags:
                 properties:
                   status:
                     type: string
+								 example: success
+									message:
+										type: string
+										example: Order created successfully
                   data:
                     type: object
                     properties:
@@ -316,6 +324,44 @@ tags:
         '200':
           description: OK
 
+	/order/recent-orders:
+		get:
+			summary: Get recent orders for a phone number
+			tags: [Orders]
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								phoneNumber:
+									type: string
+									example: "0912345678"
+			responses:
+				'200':
+					description: Recent orders retrieved successfully
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									status:
+										type: string
+										example: success
+									message:
+										type: string
+										example: Recent orders retrieved successfully
+									data:
+										type: object
+										properties:
+											orders:
+												type: array
+												items:
+													$ref: '#/components/schemas/Order'
+				'404':
+					$ref: '#/components/schemas/ErrorResponse'
+
   /payment/initializePayment:
     post:
       summary: Initialize payment (Chapa)
@@ -390,6 +436,27 @@ tags:
       responses:
         '200':
           description: OK
+
+	/settings/pricing:
+		get:
+			summary: Get delivery pricing settings
+			tags: [Settings]
+			responses:
+				'200':
+					description: Pricing settings fetched successfully
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									status:
+										type: string
+										example: success
+									message:
+										type: string
+										example: Pricing settings retrieved successfully
+									data:
+										$ref: '#/components/schemas/PricingSettings'
 
   /users/me:
     get:
@@ -670,6 +737,40 @@ components:
 					type: string
 					format: date-time
 
+			PricingSettings:
+				type: object
+				properties:
+					delivery_fee:
+						type: number
+						description: Base delivery fee applied to every order
+					delivery_per_km_rate:
+						type: number
+						description: Additional fee charged per kilometre travelled
+					max_delivery_distance_km:
+						type: number
+						nullable: true
+						description: Maximum delivery distance allowed (null means unlimited)
+					service_fee:
+						type: number
+						description: Additional service fee applied to orders
+
+			PricingSettings:
+				type: object
+				properties:
+					delivery_fee:
+						type: number
+						description: Base delivery fee applied to every order
+					delivery_per_km_rate:
+						type: number
+						description: Additional fee charged per kilometre travelled
+					max_delivery_distance_km:
+						type: number
+						nullable: true
+						description: Maximum delivery distance allowed (null means unlimited)
+					service_fee:
+						type: number
+						description: Additional service fee applied to orders
+
 		PaymentInit:
 			type: object
 			properties:
@@ -862,6 +963,32 @@ paths:
 				'404':
 					$ref: '#/components/schemas/ErrorResponse'
 
+	/menu/getByRestaurant:
+		get:
+			summary: Get menu items for the authenticated user's restaurant (Owner) or scoped view
+			tags: [Menu]
+			security:
+				- bearerAuth: []
+			responses:
+				'200':
+					description: OK
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									status:
+										type: string
+									data:
+										type: object
+										properties:
+											menuItems:
+												type: array
+												items:
+													$ref: '#/components/schemas/MenuItem'
+				'404':
+					$ref: '#/components/schemas/ErrorResponse'
+
 	/restaurants:
 		get:
 			summary: List restaurants
@@ -1039,6 +1166,44 @@ paths:
 			responses:
 				'200':
 					description: Deleted
+				'404':
+					$ref: '#/components/schemas/ErrorResponse'
+
+	/restaurants/{id}/assignOwner:
+		put:
+			summary: Assign an owner to a restaurant (admin only)
+			tags: [Restaurants]
+			security:
+				- bearerAuth: []
+			parameters:
+				- name: id
+					in: path
+					required: true
+					schema:
+						type: string
+			requestBody:
+				required: true
+				content:
+					application/json:
+						schema:
+							type: object
+							properties:
+								ownerId:
+									type: string
+			responses:
+				'200':
+					description: Owner assigned
+					content:
+						application/json:
+							schema:
+								type: object
+								properties:
+									success:
+										type: boolean
+								restaurant:
+									$ref: '#/components/schemas/Restaurant'
+				'400':
+					$ref: '#/components/schemas/ErrorResponse'
 				'404':
 					$ref: '#/components/schemas/ErrorResponse'
 
@@ -1369,6 +1534,27 @@ paths:
 				'200':
 					description: OK
 
+		/settings/pricing:
+			get:
+				summary: Get delivery pricing settings
+				tags: [Settings]
+				responses:
+					'200':
+						description: Pricing settings fetched successfully
+						content:
+							application/json:
+								schema:
+									type: object
+									properties:
+										status:
+											type: string
+											example: success
+										message:
+											type: string
+											example: Pricing settings retrieved successfully
+										data:
+											$ref: '#/components/schemas/PricingSettings'
+
 	/users/me:
 		get:
 			summary: Get current user profile
@@ -1638,6 +1824,30 @@ components:
 							type: array
 							items:
 								type: object
+						phoneNumber:
+							type: string
+						restaurantId:
+							oneOf:
+								- type: string
+								- type: object
+									properties:
+										_id:
+											type: string
+										name:
+											type: string
+										address:
+											type: string
+						assignedEmployeeId:
+							oneOf:
+								- type: string
+								- type: object
+									properties:
+										_id:
+											type: string
+										name:
+											type: string
+										phoneNumber:
+											type: string
 						totalPrice:
 							type: number
 						status:
@@ -2361,6 +2571,27 @@ tags:
 				responses:
 					'200':
 						description: OK
+
+			/settings/pricing:
+				get:
+					summary: Get delivery pricing settings
+					tags: [Settings]
+					responses:
+						'200':
+							description: Pricing settings fetched successfully
+							content:
+								application/json:
+									schema:
+										type: object
+										properties:
+											status:
+												type: string
+												example: success
+											message:
+												type: string
+												example: Pricing settings retrieved successfully
+											data:
+												$ref: '#/components/schemas/PricingSettings'
 
 		/users/me:
 			get:
