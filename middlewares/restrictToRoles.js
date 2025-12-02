@@ -17,13 +17,13 @@ const restrictToRoles = catchAsync(async (req, res, next) => {
   }
 
   if (role === "owner") {
-    // owner → fetch their restaurant(s)
-    const restaurants = await Restaurant.find({ ownerId: req.user.id }, { _id: 1 });
-    if (!restaurants.length) {
+    // owner → fetch their single restaurant
+    const restaurant = await Restaurant.findOne({ ownerId: req.user.id }, { _id: 1 });
+    if (!restaurant) {
       return next(new AppError("No restaurant assigned to this owner", 404));
     }
 
-    req.ownerRestaurantIds = restaurants.map(r => r._id); // attach IDs
+    req.ownerRestaurantId = restaurant._id; // single ID
     return next();
   }
 
