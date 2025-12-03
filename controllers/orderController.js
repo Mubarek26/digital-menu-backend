@@ -9,9 +9,6 @@ const generateOrderId = require("../utils/generateOrderId");
 const calculateDeliveryFee = require("../utils/calculateDeliveryFee");
 const { orderTries, orderTimers } = require("../utils/dispatcher");
 
-const { orderTries, orderTimers } = require("../utils/dispatcher");
-
-
 const parseNumeric = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
