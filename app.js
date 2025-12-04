@@ -1,4 +1,5 @@
 const express = require("express");
+const mongoose = require("mongoose");
 const AppError = require("./utils/appError");
 const globalErrorHandler = require("./controllers/globalErrorHandler");
 const dotenv = require("dotenv");
@@ -13,7 +14,9 @@ const paymentRoutes = require("./routes/paymentRoutes");
 const restaurantRoues = require("./routes/restaurantRoutes");
 const setupSwagger = require("./swagger/swagger");
 const settingsRoutes = require("./routes/settingsRoutes");
-const analyticsRoute = require("./routes/analyticsRoute");
+const analyticsRoutes = require("./routes/analyticsRoute");
+const deliveryRoutes = require("./routes/deliveryRoutes");
+
 dotenv.config(); // Load environment variables
 const app = express();
 setupSwagger(app);
@@ -21,7 +24,6 @@ setupSwagger(app);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-
 const cors = require("cors");
 
 // Trust proxy so secure cookies work when the app is behind Render or another
@@ -29,7 +31,7 @@ const cors = require("cors");
 app.set("trust proxy", 1);
 
 // Allowlist origins for CORS. Read deployed frontend origin(s) from
-// environment variables `FRONTEND_URL` (single) or `FRONTEND_URLS`
+// environment variables FRONTEND_URL (single) or FRONTEND_URLS
 // (comma-separated). Local dev origins are appended automatically.
 const frontendOrigins = (
   process.env.FRONTEND_URLS ||
@@ -43,8 +45,10 @@ const frontendOrigins = (
 const allowedOrigins = [
   ...frontendOrigins,
   "http://localhost:5173",
+  "http://localhost:5174",
   "http://127.0.0.1:5173",
-  "https://digital-menu-backend-73fs.onrender.com",
+  "https://digital-menu-backend-73fs.onrender.com/api/v1",
+  "https://digital-menu-tau-five.vercel.app",
 ];
 
 app.use(
@@ -77,11 +81,10 @@ app.use("/api/v1/users", userRouter);
 app.use("/api/v1/categories", categoryRoutes);
 app.use("/api/v1/payment", paymentRoutes);
 app.use("/api/v1/settings", settingsRoutes);
-app.use("/api/v1/analytics", analyticsRoute);
-
+app.use("/api/v1/analytics", analyticsRoutes);
+app.use("/api/v1/delivery", deliveryRoutes);
 // (restaurant routes already mounted above)
 // console.log('app: mounted /api/v1/settings');
-
 app.get("/favicon.ico", (req, res) => {
   res.status(204).end();
 });
