@@ -21,6 +21,7 @@ const TEN_MINUTES_IN_MS = 5 * 60 * 1000;
 
 // GLOBAL state shared across the entire backend
 const orderTimers = new Map();
+
 const orderTries = new Map();
 
 // ---------------------------------------------------------------------
@@ -56,6 +57,7 @@ async function assignEmployee(order, employee) {
 
   console.log(`[dispatcher] → assigned order ${order._id} to ${employee._id}`);
 
+
   io.to(String(employee._id)).emit('order_assigned', { order: fresh });
 
 
@@ -70,6 +72,7 @@ async function handleAssignmentTimeout(orderId, employeeId) {
     const order = await Order.findById(orderId);
     if (!order) return;
 
+
     if (order.status !== 'pending' || String(order.assignedEmployeeId) !== String(employeeId)) {
       return;
     }
@@ -82,6 +85,8 @@ async function handleAssignmentTimeout(orderId, employeeId) {
     orderTimers.delete(String(order._id));
 
     const tried = orderTries.get(String(order._id)) || new Set();
+
+
 
     let nextEmployee = await User.findOne({
       role: ROLE_MAP[order.orderType],
@@ -104,6 +109,8 @@ async function handleAssignmentTimeout(orderId, employeeId) {
       orderTries.delete(String(order._id));
       return;
     }
+
+
 
     await assignEmployee(order, nextEmployee);
 
