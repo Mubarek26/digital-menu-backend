@@ -287,6 +287,54 @@ const getOwnerRestaurant = catchAsync(async (req, res, next) => {
     data: restaurant,
   });
 });
+/* ------------------------------------------------------------------------ */
+/*                      RECENT PENDING ORDERS                               */
+/* ------------------------------------------------------------------------ */
+
+const getRecentPendingOrders = catchAsync(async (req, res, next) => {
+  const limit = 10; // default limit
+
+  // Base filter: only pending orders
+  const matchFilter = { status: "pending" };
+
+  // Role-based scoping (set by restrictToRoles)
+  if (req.ownerRestaurantId) {
+    matchFilter.restaurantId = req.ownerRestaurantId;
+  } else {
+    const restaurantId = req.query.restaurant;
+    if (restaurantId && restaurantId !== "all") {
+      if (!mongoose.Types.ObjectId.isValid(restaurantId)) {
+        return next(new AppError("Invalid restaurant id", 400));
+      }
+      matchFilter.restaurantId = new mongoose.Types.ObjectId(restaurantId);
+    }
+  }
+
+  // Fetch orders and populate restaurant name
+  const orders = await Order.find(matchFilter)
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .populate({
+      path: "restaurantId",
+      select: "name",
+    })
+    .lean();
+
+  // Map orders to include restaurantName
+  const formattedOrders = orders.map(order => ({
+    _id: order.orderId,
+    status: order.status,
+    totalPrice: order.totalPrice,
+    createdAt: order.createdAt,
+    restaurantName: order.restaurantId?.name || "Unknown",
+  }));
+
+  res.status(200).json({
+    success: true,
+    count: formattedOrders.length,
+    data: formattedOrders,
+  });
+});
 
 
 module.exports = {
@@ -297,5 +345,6 @@ module.exports = {
   getOrdersDistribution,
   getRestaurantsNames,
   getRestaurantName,
-  getOwnerRestaurant
+  getOwnerRestaurant,
+  getRecentPendingOrders,
 };
