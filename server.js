@@ -16,11 +16,16 @@ const app = require('./app');
     const server = http.createServer(app);
 
     // Setup socket.io
-
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.LOCALHOST_5173,
+  process.env.LOCALHOST_5174,
+  process.env.BACKEND_URL,
+]
     const { Server } = require('socket.io');
     const io = new Server(server, {
       cors: {
-        origin: ["https://digital-menu-tau-five.vercel.app", "http://localhost:5173","http://localhost:5174", "https://your-backend-name.onrender.com"],
+        origin: allowedOrigins,
         methods: ['GET', 'POST'],
         credentials: true,
       },
@@ -38,6 +43,8 @@ const app = require('./app');
 
     // Load dispatcher AFTER io is available and DB is connected
     try {
+
+
 
      const { dispatcher } = require("./utils/dispatcher");
       dispatcher(io);

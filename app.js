@@ -15,6 +15,7 @@ const restaurantRoues = require("./routes/restaurantRoutes");
 const setupSwagger = require("./swagger/swagger");
 const settingsRoutes = require("./routes/settingsRoutes");
 const analyticsRoutes = require("./routes/analyticsRoute");
+const deliveryRoutes = require("./routes/deliveryRoutes");
 
 dotenv.config(); // Load environment variables
 const app = express();
@@ -81,6 +82,7 @@ app.use("/api/v1/categories", categoryRoutes);
 app.use("/api/v1/payment", paymentRoutes);
 app.use("/api/v1/settings", settingsRoutes);
 app.use("/api/v1/analytics", analyticsRoutes);
+app.use("/api/v1/delivery", deliveryRoutes);
 // (restaurant routes already mounted above)
 // console.log('app: mounted /api/v1/settings');
 app.get("/favicon.ico", (req, res) => {

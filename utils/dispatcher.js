@@ -1,6 +1,8 @@
 // utils/dispatcher.js
 
 
+
+
 const cron = require("node-cron");
 const User = require('../models/UserModel');
 const Order = require("../models/Order");
@@ -77,10 +79,6 @@ async function handleAssignmentTimeout(orderId, employeeId) {
 
     console.log(`[dispatcher] Employee ${employeeId} missed timeout on order ${orderId}`);
 
-
-    io.to(String(employeeId)).emit('order_unassigned', { orderId });
-
-
     order.assignedEmployeeId = null;
     await order.save();
 
@@ -122,6 +120,7 @@ async function handleAssignmentTimeout(orderId, employeeId) {
 }
 
 // ---------------------------------------------------------------------
+
 
 // START DISPATCHER (REQUIRES IO)
 // ---------------------------------------------------------------------
