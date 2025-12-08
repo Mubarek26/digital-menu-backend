@@ -178,7 +178,8 @@ const updateRestaurant = async (req, res) => {
 
     if (
       // restaurant.ownerId?.toString() !== req.user._id.toString() &&
-      req.user.role !== "Manager"
+      req.user.role !== "Manager" &&
+      req.user.role !== "superadmin"
     ) {
       return res.status(403).json({
         success: false,
