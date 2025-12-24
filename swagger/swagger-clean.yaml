@@ -112,11 +112,17 @@ components:
 
     UserSignup:
       type: object
+      required:
+        - name
+        - email
+        - password
+        - passwordConfirm
       properties:
         name:
           type: string
         email:
           type: string
+          format: email
         password:
           type: string
         passwordConfirm:
@@ -125,6 +131,32 @@ components:
           type: number
         role: 
           type: string
+
+    UserLogin:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthSuccess:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        token:
+          type: string
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
 
     Category:
       type: object
@@ -778,8 +810,16 @@ paths:
       responses:
         '200':
           description: Created and logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccess'
         '400':
-          $ref: '#/components/schemas/ErrorResponse'
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /users/login:
     post:
@@ -790,17 +830,20 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                email:
-                  type: string
-                password:
-                  type: string
+              $ref: '#/components/schemas/UserLogin'
       responses:
         '200':
           description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSuccess'
         '401':
-          $ref: '#/components/schemas/ErrorResponse'
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
 
   /categories:
     get:
