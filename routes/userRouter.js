@@ -18,7 +18,7 @@ router.route("/resetPassword/:token").patch(authController.resetPassword);
 // router.use(authController.protect); // Protect all routes after this middleware
 
 router.route("/updatePassword").patch(authController.protect, authController.updatePassword);
-router.route("/me").get(userControllers.getMe, userControllers.getUser); // Route to create a new user
+router.route("/me").get(authController.protect, userControllers.getMe, userControllers.getUser); // Route to create a new user
 router.route("/updateMe").patch(authController.protect, userControllers.updateMe); // Route to update user profile
 router.route("/deleteMe").delete(authController.protect, userControllers.deleteMe); // Route to delete user profile
 
