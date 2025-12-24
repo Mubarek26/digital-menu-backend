@@ -6,6 +6,7 @@ const promisify = require("util").promisify;
 const crypto = require("crypto");
 const { send } = require("process");
 const sendEmail = require("../utils/email");
+const validator = require("validator");
 const path = require("path");
 const singToken = async (id) => {
   return jwt.sign({ id: id }, process.env.JWT_SECRET, {
@@ -51,18 +52,30 @@ exports.signup = catchAsync(async (req, res, next) => {
 });
 
 exports.login = catchAsync(async (req, res, next) => {
-  const { email, password } = req.body;
-  // Check if email and password are provided
-  if (!email || !password) {
-    return next(new AppError("Please provide email and password!", 400));
+  const { email, phoneNumber, identifier, password } = req.body;
+
+  // Accept either email or phone number (identifier acts as a combined field)
+  const loginField = (email || phoneNumber || identifier || "").toString().trim();
+
+  if (!loginField || !password) {
+    return next(new AppError("Please provide email or phone number and password!", 400));
   }
 
-  // Find user by email and check password
-  const user = await User.findOne({ email }).select("+password");
+  let query;
+  if (validator.isEmail(loginField)) {
+    query = { email: loginField.toLowerCase() };
+  } else if (/^\d+$/.test(loginField)) {
+    query = { phoneNumber: loginField };
+  } else {
+    return next(new AppError("Please provide a valid email or phone number!", 400));
+  }
+
+  const user = await User.findOne(query).select("+password");
 
   if (!user || !(await user.correctPassword(password, user.password))) {
-    return next(new AppError("Incorrect email or password", 401));
+    return next(new AppError("Incorrect credentials", 401));
   }
+
   createSendToken(user, 200, res);
 });
 
@@ -166,7 +179,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   //send it to user's email
  const resetURL = `${process.env.FRONTEND_URL}/resetPassword/${resetToken}`;
   const message =
-    `Forgot your password? Submit a PATCH request with your new password and password` +
+    `Forgot your password? Please use the link below to set a new password and confirm it` +
     `Confirm to: ${resetURL}.\nIf you didn't forget your password, please ignore this email!`;
   try {
     await sendEmail({
