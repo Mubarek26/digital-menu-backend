@@ -48,7 +48,11 @@ const allowedOrigins = [
   "http://localhost:5174",
   "http://127.0.0.1:5173",
   "https://digital-menu-backend-73fs.onrender.com/api/v1",
+  "https://digital-menu-backend-73fs.onrender.com",
   "https://digital-menu-tau-five.vercel.app",
+  "https://saro-delivery-backend-3003fd28f5b8.herokuapp.com",
+  "https://saro-delivery-backend-3003fd28f5b8.herokuapp.com/api/v1",
+  "http://localhost:5000",
 ];
 
 app.use(
