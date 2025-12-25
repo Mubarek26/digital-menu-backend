@@ -52,6 +52,8 @@ const allowedOrigins = [
   "https://digital-menu-tau-five.vercel.app",
   "https://saro-delivery-backend-3003fd28f5b8.herokuapp.com",
   "https://saro-delivery-backend-3003fd28f5b8.herokuapp.com/api/v1",
+  "https://saro-dev.vercel.app",
+  "https://saro-prod.vercel.app",
   "http://localhost:5000",
 ];
 
