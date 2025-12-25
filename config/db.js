@@ -7,7 +7,7 @@ const ensureSuperAdmin = require('../utils/ensureSuperAdmin');
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.DATABASE);
+    await mongoose.connect(process.env.DATABASE_PROD,);
     await ensureSuperAdmin();
 
     console.log('✅ MongoDB connected!');
