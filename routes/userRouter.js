@@ -3,6 +3,7 @@ const router = express.Router();
 const authController = require("../controllers/authController");
 // const fs = require('fs');
 const userControllers = require("./../controllers/userControllers");
+const uploads = require("../middlewares/uploads");
 const { createUser, getAllUsers, getUser, updateUsers, deleteUsers } =
   userControllers;
 const { signup, login } = authController;
@@ -19,7 +20,9 @@ router.route("/resetPassword/:token").patch(authController.resetPassword);
 
 router.route("/updatePassword").patch(authController.protect, authController.updatePassword);
 router.route("/me").get(authController.protect, userControllers.getMe, userControllers.getUser); // Route to create a new user
-router.route("/updateMe").patch(authController.protect, userControllers.updateMe); // Route to update user profile
+router
+  .route("/updateMe")
+  .patch(authController.protect, uploads.single("photo"), userControllers.updateMe); // Route to update user profile
 router.route("/deleteMe").delete(authController.protect, userControllers.deleteMe); // Route to delete user profile
 
 
@@ -28,7 +31,7 @@ router.route("/deleteMe").delete(authController.protect, userControllers.deleteM
 // router.use(authController.restrictTo("super admin"));
 
 router.route("/").get(getAllUsers);
-router.route("/signup").post(signup); 
+router.route("/signup").post(uploads.single("photo"), signup); 
 
 router.get('/check-auth', authController.protect, (req, res) => {
   res.json({ status: 'ok', user: req.user });

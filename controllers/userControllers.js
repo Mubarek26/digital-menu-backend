@@ -23,19 +23,24 @@ exports.updateMe = catchAsync(async (req, res, next) => {
       )
     );
   }
+  const photo = req.file ? req.file.filename : undefined;
   // 2. Filter out unwanted fields names that are not allowed to be updated
   const filteredBody = {};
   const allowedFields = ['name', 'photo', 'status']; // Add any other fields
   Object.keys(req.body).forEach((el) => {
     if (allowedFields.includes(el)) filteredBody[el] = req.body[el];
   });
+  if (photo) {
+    filteredBody.photo = photo;
+  }
 
   // 3. update user document
   const updatedUser = await User.findByIdAndUpdate(req.user._id, filteredBody, {
     new: true, // return the updated document
     runValidators: true,
   });
-  const { email, status,name } = updatedUser;
+  const { email, status,name, role } = updatedUser;
+  const photoField = updatedUser.photo;
 
   res.status(200).json({
     status: 'success',
@@ -44,6 +49,8 @@ exports.updateMe = catchAsync(async (req, res, next) => {
         email,
         status,
         name,
+        role,
+        photo: photoField,
         // ...updatedUser._doc,
       },
     },
