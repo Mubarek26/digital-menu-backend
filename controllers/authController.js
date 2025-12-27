@@ -71,9 +71,13 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(new AppError("Please provide a valid email or phone number!", 400));
   }
 
-  const user = await User.findOne(query).select("+password");
+  const user = await User.findOne(query).select("+password +active");
 
-  if (!user || !(await user.correctPassword(password, user.password))) {
+  if (!user || !user.active) {
+    return next(new AppError("This account is deactivated. Please contact support.", 403));
+  }
+
+  if (!(await user.correctPassword(password, user.password))) {
     return next(new AppError("Incorrect credentials", 401));
   }
 
