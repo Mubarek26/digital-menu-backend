@@ -22,9 +22,9 @@ const createSendToken = catchAsync(async (user, statusCode, res) => {
     expires: new Date(
       Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
     ),
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production"|| process.env.NODE_ENV === "development_render" ? true : false,
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    sameSite: process.env.NODE_ENV === "production"|| process.env.NODE_ENV === "development_render" ? "none" : "lax",
     path: "/"
   };
   res.cookie("jwt", token, cookieOptions);
