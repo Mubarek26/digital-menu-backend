@@ -10,6 +10,9 @@ const storage = multer.diskStorage({
       case "image":
         cb(null, "uploads/foods");
         break;
+      case "photo":
+        cb(null, "uploads/users");
+        break;
       case "logo":
         cb(null, "uploads/restaurants");
         break;

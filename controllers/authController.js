@@ -38,12 +38,13 @@ const createSendToken = catchAsync(async (user, statusCode, res) => {
   });
 });
 exports.signup = catchAsync(async (req, res, next) => {
+  const photoFilename = req.file ? req.file.filename : req.body.photo;
   const newUser = await User.create({
     name: req.body.name,
     email: req.body.email,
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
-    photo: req.body.photo || "default.jpg", // Default photo if not provided
+    photo: photoFilename || "default.jpg", // Default photo if not provided
     phoneNumber: req.body.phoneNumber, // Add phone number field
     // passwordChangedAt: req.body.passwordChangedAt || Date.now(),
     role: req.body.role || "user", // Default role if not provided
