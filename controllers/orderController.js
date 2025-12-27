@@ -280,11 +280,11 @@ exports.createOrder = catchAsync(async (req, res, next) => {
         .lean();
 
       // log the plain populated object for debugging (JSON.stringify avoids circulars)
-      console.log(
-        "[orderController] Emitting newOrder (populated plain object) to restaurant:",
-        resolvedRestaurantId,
-        JSON.stringify(populatedOrder)
-      );
+      // console.log(
+      //   "[orderController] Emitting newOrder (populated plain object) to restaurant:",
+      //   resolvedRestaurantId,
+      //   JSON.stringify(populatedOrder)
+      // );
 
       // Emit only to clients subscribed to this restaurant room
       const room = `restaurant_${String(resolvedRestaurantId)}`;
@@ -297,17 +297,17 @@ exports.createOrder = catchAsync(async (req, res, next) => {
       responseOrder = populatedOrder;
     } catch (err) {
       // fallback: emit a plain object derived from the mongoose document
-      console.error(
-        "[orderController] Error populating/sending newOrder via socket:",
-        err
-      );
+      // console.error(
+      //   "[orderController] Error populating/sending newOrder via socket:",
+      //   err
+      // );
 
       const plainOrder = newOrder.toObject ? newOrder.toObject() : JSON.parse(JSON.stringify(newOrder));
-      console.log(
-        "[orderController] Emitting newOrder (fallback plain object) to restaurant:",
-        resolvedRestaurantId,
-        JSON.stringify(plainOrder)
-      );
+      // console.log(
+      //   "[orderController] Emitting newOrder (fallback plain object) to restaurant:",
+      //   resolvedRestaurantId,
+      //   JSON.stringify(plainOrder)
+      // );
 
       const room = `restaurant_${String(resolvedRestaurantId)}`;
       io.to(room).emit("newOrder", {
@@ -601,11 +601,11 @@ exports.confirmOrder = catchAsync(async (req, res, next) => {
         .lean();
       const targetRest = populated?.restaurantId || updated.restaurantId || resolvedRestaurantId;
       const room = `restaurant_${String(targetRest)}`;
-      console.log("[orderController] Emitting order:updated (confirmOrder) to room:", room, JSON.stringify(populated));
+      // console.log("[orderController] Emitting order:updated (confirmOrder) to room:", room, JSON.stringify(populated));
       io.to(room).emit("order:updated", { order: populated });
     }
   } catch (err) {
-    console.error("[orderController] Failed to emit order:updated (confirmOrder):", err);
+    // console.error("[orderController] Failed to emit order:updated (confirmOrder):", err);
   }
 
   res.status(200).json({
@@ -642,11 +642,11 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
             .lean();
           const targetRest = populated?.restaurantId || updated.restaurantId;
           const room = `restaurant_${String(targetRest)}`;
-          console.log("[orderController] Emitting order:updated (cancel) to room:", room, JSON.stringify(populated));
+          // console.log("[orderController] Emitting order:updated (cancel) to room:", room, JSON.stringify(populated));
           io.to(room).emit("order:updated", { order: populated });
       }
     } catch (err) {
-      console.error("[orderController] Failed to emit order:updated (cancel):", err);
+      // console.error("[orderController] Failed to emit order:updated (cancel):", err);
     }
 
     return res.status(200).json({
@@ -696,11 +696,11 @@ if (orderTimers.has(String(order._id))) {
         .lean();
       const targetRest = populated?.restaurantId || order.restaurantId;
       const room = `restaurant_${String(targetRest)}`;
-      console.log("[orderController] Emitting order:updated (status change) to room:", room, JSON.stringify(populated));
+      // console.log("[orderController] Emitting order:updated (status change) to room:", room, JSON.stringify(populated));
       io.to(room).emit("order:updated", { order: populated });
     }
   } catch (err) {
-    console.error("[orderController] Failed to emit order:updated (status change):", err);
+    // console.error("[orderController] Failed to emit order:updated (status change):", err);
   }
 
   res.status(200).json({
