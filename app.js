@@ -51,9 +51,7 @@ const allowedOrigins = [
   "https://digital-menu-backend-73fs.onrender.com/api/v1",
   "https://digital-menu-backend-73fs.onrender.com",
   "https://digital-menu-tau-five.vercel.app",
-
   "http://localhost:8080",
-
   "https://saro-delivery-backend-3003fd28f5b8.herokuapp.com",
   "https://saro-delivery-backend-3003fd28f5b8.herokuapp.com/api/v1",
   "https://saro-dev.vercel.app",
