@@ -20,14 +20,14 @@ router
   .route("/")
   // Run uploads first to ensure multipart/form-data is parsed before auth middleware
   .post(uploads, authcontroller.protect, createRestaurant)  // Admin only
-  .get(getAllRestaurants);              // Public or authenticated
+  .get(authcontroller.protect, getAllRestaurants);              // Public or authenticated
 
 // Get, update, delete specific restaurant
 router.route("/my")
 .get(authcontroller.protect,getMyRestaurants);
 router
   .route("/:id")
-  .get(getRestaurantById)
+  .get(authcontroller.protect, getRestaurantById)
   // Allow updating images via multipart/form-data as well
   .put(uploads, authcontroller.protect, updateRestaurant)
   .delete(authcontroller.protect, deleteRestaurant);

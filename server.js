@@ -56,6 +56,16 @@ const allowedOrigins = [
     io.on('connection', (socket) => {
       console.log('🟢 New client connected:', socket.id);
 
+      // Allow superadmins/managers to subscribe to all order events
+      socket.on('joinAdmin', () => {
+        try {
+          socket.join('admins');
+          console.log(`🔔 Socket ${socket.id} joined admins room`);
+        } catch (err) {
+          console.error('[server] Error joining admins room:', err);
+        }
+      });
+
       socket.on('joinRestaurant', (restaurantId) => {
 
         try {

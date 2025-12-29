@@ -5,7 +5,7 @@ const authController = require("../controllers/authController");
 // Define routes for orders
 router
   .route("/")
-  .post(authController.protect, orderController.createOrder) // Create a new order
+  .post( orderController.createOrder) // Create a new order
   .get(authController.protect, orderController.getAllOrders); // Get all orders
 // get recent orders
 router.route("/recent-orders").post(authController.protect, orderController.getRecentOrders); // Get recent orders for a restaurant
