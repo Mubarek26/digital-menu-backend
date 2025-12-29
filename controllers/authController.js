@@ -25,7 +25,7 @@ const createSendToken = catchAsync(async (user, statusCode, res) => {
     secure: process.env.NODE_ENV === "production",
     httpOnly: true,
     sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-    path: "/"
+    path: "/",
   };
   res.cookie("jwt", token, cookieOptions);
   console.log(`JWT cookie set: ${token}`);
@@ -39,12 +39,23 @@ const createSendToken = catchAsync(async (user, statusCode, res) => {
 });
 exports.signup = catchAsync(async (req, res, next) => {
   const photoFilename = req.file ? req.file.filename : req.body.photo;
+
+  const userExists = await User.findOne({
+    $or: [{ email: req.body.email }, { phoneNumber: req.body.phoneNumber }],
+  });
+
+  if (userExists) {
+    return next(
+      new AppError("User with this email or phone number already exists", 400)
+    );
+  }
+
   const newUser = await User.create({
     name: req.body.name,
     email: req.body.email,
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
-    photo: photoFilename || "default.jpg", // Default photo if not provided
+    photo: photoFilename || "https://res.cloudinary.com/domm1m4dm/image/upload/v1767001113/296fe121-5dfa-43f4-98b5-db50019738a7_zyqlo9.jpg", // Default photo if not provided
     phoneNumber: req.body.phoneNumber, // Add phone number field
     // passwordChangedAt: req.body.passwordChangedAt || Date.now(),
     role: req.body.role || "user", // Default role if not provided
@@ -56,10 +67,16 @@ exports.login = catchAsync(async (req, res, next) => {
   const { email, phoneNumber, identifier, password } = req.body;
 
   // Accept either email or phone number (identifier acts as a combined field)
-  const loginField = (email || phoneNumber || identifier || "").toString().trim();
+  var loginField = (email || phoneNumber || identifier || "").toString().trim();
 
   if (!loginField || !password) {
-    return next(new AppError("Please provide email or phone number and password!", 400));
+    return next(
+      new AppError("Please provide email or phone number and password!", 400)
+    );
+  }
+
+  if (loginField.startsWith("+")) {
+    loginField = loginField.slice(1);
   }
 
   let query;
@@ -68,10 +85,16 @@ exports.login = catchAsync(async (req, res, next) => {
   } else if (/^\d+$/.test(loginField)) {
     query = { phoneNumber: loginField };
   } else {
-    return next(new AppError("Please provide a valid email or phone number!", 400));
+    return next(
+      new AppError("Please provide a valid email or phone number!", 400)
+    );
   }
 
   const user = await User.findOne(query).select("+password");
+
+  if(!user.active){
+    return next(new AppError("Your account has been deactivated. Please contact support.", 403));
+  }
 
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError("Incorrect credentials", 401));
@@ -85,9 +108,9 @@ exports.logout = catchAsync(async (req, res, next) => {
     httpOnly: true,
     secure: false, // true if HTTPS
     sameSite: "lax", // careful: none requires secure:true in browsers
-    path: "/",   // must match original cookie path
+    path: "/", // must match original cookie path
   });
-  res.send('Cookie cleared!');
+  res.send("Cookie cleared!");
 });
 
 exports.protect = catchAsync(async (req, res, next) => {
@@ -102,12 +125,11 @@ exports.protect = catchAsync(async (req, res, next) => {
     token = req.cookies.jwt;
   }
   if (!token) {
-    console.log('Cookies:', req.cookies);
-    console.log('Authorization header:', req.headers.authorization);
+    console.log("Cookies:", req.cookies);
+    console.log("Authorization header:", req.headers.authorization);
     return next(
       new AppError("you are not logged in! please login to get access", 401)
     );
-    
   }
 
   const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
@@ -116,10 +138,10 @@ exports.protect = catchAsync(async (req, res, next) => {
   }
   // check the user still exists
   const freshUser = await User.findById(decoded.id).select("+active");
-    console.log('Cookies:', req.cookies);
-    console.log('Authorization header:', req.headers.authorization);
+  console.log("Cookies:", req.cookies);
+  console.log("Authorization header:", req.headers.authorization);
   if (!freshUser) {
-    console.log('Token used for auth:', token);
+    console.log("Token used for auth:", token);
     return next(
       new AppError(
         "The user belonging to this token does no longer exist.",
@@ -127,19 +149,18 @@ exports.protect = catchAsync(async (req, res, next) => {
       )
     );
   }
-    console.log('Token used for auth:', token);
-    console.log('Decoded JWT:', decoded);
+  console.log("Token used for auth:", token);
+  console.log("Decoded JWT:", decoded);
   // Check if user changed password after the token was issued
   if (freshUser.changedPasswordAfter(decoded.iat)) {
-    console.log('Decoded JWT:', decoded);
+    console.log("Decoded JWT:", decoded);
     return next(
       new AppError("User recently changed password! Please log in again.", 401)
-    
     );
   }
   // check if the current user is active
   if (!freshUser.active) {
-    console.log('Fresh user:', freshUser);
+    console.log("Fresh user:", freshUser);
     return next(
       new AppError(
         "Your account is deactivated or deleted. Please contact support.",
@@ -152,10 +173,9 @@ exports.protect = catchAsync(async (req, res, next) => {
   next();
 });
 
-
 exports.restrictTo = (...roles) => {
   return (req, res, next) => {
-    if (req.user && req.user.role === 'superadmin') {
+    if (req.user && req.user.role === "superadmin") {
       return next();
     }
     if (!roles.includes(req.user.role)) {
@@ -178,7 +198,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   const resetToken = user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
   //send it to user's email
- const resetURL = `${process.env.FRONTEND_URL}/resetPassword/${resetToken}`;
+  const resetURL = `${process.env.FRONTEND_URL}/resetPassword/${resetToken}`;
   const message =
     `Forgot your password? Please use the link below to set a new password and confirm it` +
     `Confirm to: ${resetURL}.\nIf you didn't forget your password, please ignore this email!`;
