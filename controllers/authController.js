@@ -22,9 +22,9 @@ const createSendToken = catchAsync(async (user, statusCode, res) => {
     expires: new Date(
       Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
     ),
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production"|| process.env.NODE_ENV === "development_render" ? true : false,
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    sameSite: process.env.NODE_ENV === "production"|| process.env.NODE_ENV === "development_render" ? "none" : "lax",
     path: "/"
   };
   res.cookie("jwt", token, cookieOptions);
@@ -71,9 +71,13 @@ exports.login = catchAsync(async (req, res, next) => {
     return next(new AppError("Please provide a valid email or phone number!", 400));
   }
 
-  const user = await User.findOne(query).select("+password");
+  const user = await User.findOne(query).select("+password +active");
 
-  if (!user || !(await user.correctPassword(password, user.password))) {
+  if (!user || !user.active) {
+    return next(new AppError("This account is deactivated. Please contact support.", 403));
+  }
+
+  if (!(await user.correctPassword(password, user.password))) {
     return next(new AppError("Incorrect credentials", 401));
   }
 
