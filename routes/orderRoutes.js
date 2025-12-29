@@ -5,14 +5,14 @@ const authController = require("../controllers/authController");
 // Define routes for orders
 router
   .route("/")
-  .post(orderController.createOrder) // Create a new order
+  .post(authController.protect, orderController.createOrder) // Create a new order
   .get(authController.protect, orderController.getAllOrders); // Get all orders
 // get recent orders
-router.route("/recent-orders").post(orderController.getRecentOrders); // Get recent orders for a restaurant
+router.route("/recent-orders").post(authController.protect, orderController.getRecentOrders); // Get recent orders for a restaurant
 
-router.route("/confirmOrder/:orderId").patch(orderController.confirmOrder); // Restaurant confirms the order
+router.route("/confirmOrder/:orderId").patch(authController.protect, orderController.confirmOrder); // Restaurant confirms the order
 router.route("/update/:id").patch(authController.protect, orderController.updateOrderStatus);
-router.route("/getOrder/:id").get(orderController.getOrderById); // Get an order by ID
+router.route("/getOrder/:id").get(authController.protect, orderController.getOrderById); // Get an order by ID
 
 router
   .route("/analytics/total-revenue/:restaurantId")
