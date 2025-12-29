@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const settingController = require('../controllers/settingController');
-
+const authController = require('../controllers/authController');
 // Log when this route file is loaded (helps ensure it's required)
 // console.log('routes/settingsRoutes.js loaded');
 
