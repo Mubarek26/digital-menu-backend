@@ -11,7 +11,7 @@ router
 router.route("/recent-orders").post(orderController.getRecentOrders); // Get recent orders for a restaurant
 
 router.route("/confirmOrder/:orderId").patch(orderController.confirmOrder); // Restaurant confirms the order
-router.route("/update/:id").patch(orderController.updateOrderStatus);
+router.route("/update/:id").patch(authController.protect, orderController.updateOrderStatus);
 router.route("/getOrder/:id").get(orderController.getOrderById); // Get an order by ID
 
 router

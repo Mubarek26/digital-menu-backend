@@ -91,6 +91,7 @@ async function handleAssignmentTimeout(orderId, employeeId) {
     let nextEmployee = await User.findOne({
       role: ROLE_MAP[order.orderType],
       status: 'available',
+      active: true,
       _id: { $nin: [...tried] }
     }).sort({ last_assigned_at: 1 });
 
