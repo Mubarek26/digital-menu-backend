@@ -91,7 +91,12 @@ exports.getAll = (Model) =>
       // to allow for nested GET reviews on tour (hack)
     let filter = {};
     if (req.params.tourId) filter = { tour: req.params.tourId }; // Filter reviews by tour ID if provided
-    const features = new APIFeatures(Model.find(filter), req.query)
+    const baseQuery = Model.find(filter);
+    if (Model.modelName === 'User') {
+      baseQuery.select('+active'); // include active flag for user listings
+    }
+
+    const features = new APIFeatures(baseQuery, req.query)
       .filter()
       .sort()
       .limitFields()

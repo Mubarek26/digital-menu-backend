@@ -1,23 +1,37 @@
 
 // db.js
+const path = require('path');
 const mongoose = require('mongoose');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const ensureSuperAdmin = require('../utils/ensureSuperAdmin');
 
 
 const connectDB = async () => {
+  const envName = (process.env.NODE_ENV || 'development').trim().toLowerCase();
+  const uriByEnv = {
+    development: process.env.DATABASE_DEV,
+    dev: process.env.DATABASE_DEV,
+    production: process.env.DATABASE_PROD,
+    prod: process.env.DATABASE_PROD,
+    local: process.env.DATABASE_LOCAL,
+  };
+
+  const uri = uriByEnv[envName] || process.env.DATABASE_DEV;
+
+  if (!uri) {
+    console.error(`❌ No database URI configured for ENV_NAME='${envName}'. Available ENV_NAME values: development/dev, production/prod, local.`);
+    console.error('ENV_NAME:', envName);
+    console.error('DATABASE_DEV set?', Boolean(process.env.DATABASE_DEV));
+    console.error('DATABASE_PROD set?', Boolean(process.env.DATABASE_PROD));
+    console.error('DATABASE_LOCAL set?', Boolean(process.env.DATABASE_LOCAL));
+    process.exit(1);
+  }
+
   try {
-    if(process.env.NODE_ENV === 'production') {
-      console.log('Connecting to Production Database');
-      await mongoose.connect(process.env.DATABASE_PROD);
-    }
-    else{
-      console.log('Connecting to Development Database');
-      await mongoose.connect(process.env.DATABASE_DEV);
-    }
+    await mongoose.connect(uri);
     await ensureSuperAdmin();
 
-    console.log('✅ MongoDB connected!');
+    console.log(`✅ MongoDB connected for env '${envName}'.`);
   } catch (err) {
     console.error('❌ MongoDB connection error:', err.message);
 
