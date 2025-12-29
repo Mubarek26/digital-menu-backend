@@ -7,7 +7,7 @@ const cron = require("node-cron");
 const User = require('../models/UserModel');
 const Order = require("../models/Order");
 
-console.log('[dispatcher] loading...');
+// console.log('[dispatcher] loading...');
 
 
 const ROLE_MAP = {
@@ -55,7 +55,7 @@ async function assignEmployee(order, employee) {
 
   const fresh = await Order.findById(order._id).lean();
 
-  console.log(`[dispatcher] → assigned order ${order._id} to ${employee._id}`);
+  // console.log(`[dispatcher] → assigned order ${order._id} to ${employee._id}`);
 
 
   io.to(String(employee._id)).emit('order_assigned', { order: fresh });
@@ -77,7 +77,7 @@ async function handleAssignmentTimeout(orderId, employeeId) {
       return;
     }
 
-    console.log(`[dispatcher] Employee ${employeeId} missed timeout on order ${orderId}`);
+    // console.log(`[dispatcher] Employee ${employeeId} missed timeout on order ${orderId}`);
 
     order.assignedEmployeeId = null;
     await order.save();
@@ -91,13 +91,14 @@ async function handleAssignmentTimeout(orderId, employeeId) {
     let nextEmployee = await User.findOne({
       role: ROLE_MAP[order.orderType],
       status: 'available',
+      active: true,
       _id: { $nin: [...tried] }
     }).sort({ last_assigned_at: 1 });
 
 
 
     if (!nextEmployee) {
-      console.log(`[dispatcher] No available employees for ${orderId}. Broadcasting...`);
+      // console.log(`[dispatcher] No available employees for ${orderId}. Broadcasting...`);
 
       const room = order.restaurantId ? `restaurant_${String(order.restaurantId)}` : null;
       if (room) io.to(room).emit('order_available', { orderId, order });
@@ -115,7 +116,7 @@ async function handleAssignmentTimeout(orderId, employeeId) {
     await assignEmployee(order, nextEmployee);
 
   } catch (err) {
-    console.error("[dispatcher] Timeout handler error:", err);
+    // console.error("[dispatcher] Timeout handler error:", err);
   }
 }
 
@@ -128,7 +129,7 @@ function dispatcher(ioInstance) {
   io = ioInstance;
 
   cron.schedule("*/30 * * * * *", async () => {
-    console.log("[dispatcher] checking...");
+    // console.log("[dispatcher] checking...");
 
     const cutoff = new Date(Date.now() - TEN_MINUTES_IN_MS);
     const staleOrders = await Order.find({
@@ -148,7 +149,7 @@ function dispatcher(ioInstance) {
         orderTimers.delete(String(order._id));
       }
 
-      console.log(`Cancelled order ${order._id} due to restaurant inactivity`);
+      // console.log(`Cancelled order ${order._id} due to restaurant inactivity`);
     }
 
     const unassigned = await Order.find({

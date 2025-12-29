@@ -6,6 +6,7 @@ const promisify = require("util").promisify;
 const crypto = require("crypto");
 const { send } = require("process");
 const sendEmail = require("../utils/email");
+const validator = require("validator");
 const path = require("path");
 const singToken = async (id) => {
   return jwt.sign({ id: id }, process.env.JWT_SECRET, {
@@ -21,9 +22,9 @@ const createSendToken = catchAsync(async (user, statusCode, res) => {
     expires: new Date(
       Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
     ),
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production"|| process.env.NODE_ENV === "development_render" ? true : false,
     httpOnly: true,
-    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    sameSite: process.env.NODE_ENV === "production"|| process.env.NODE_ENV === "development_render" ? "none" : "lax",
     path: "/"
   };
   res.cookie("jwt", token, cookieOptions);
@@ -37,12 +38,13 @@ const createSendToken = catchAsync(async (user, statusCode, res) => {
   });
 });
 exports.signup = catchAsync(async (req, res, next) => {
+  const photoFilename = req.file ? req.file.filename : req.body.photo;
   const newUser = await User.create({
     name: req.body.name,
     email: req.body.email,
     password: req.body.password,
     passwordConfirm: req.body.passwordConfirm,
-    photo: req.body.photo || "default.jpg", // Default photo if not provided
+    photo: photoFilename || "default.jpg", // Default photo if not provided
     phoneNumber: req.body.phoneNumber, // Add phone number field
     // passwordChangedAt: req.body.passwordChangedAt || Date.now(),
     role: req.body.role || "user", // Default role if not provided
@@ -51,18 +53,34 @@ exports.signup = catchAsync(async (req, res, next) => {
 });
 
 exports.login = catchAsync(async (req, res, next) => {
-  const { email, password } = req.body;
-  // Check if email and password are provided
-  if (!email || !password) {
-    return next(new AppError("Please provide email and password!", 400));
+  const { email, phoneNumber, identifier, password } = req.body;
+
+  // Accept either email or phone number (identifier acts as a combined field)
+  const loginField = (email || phoneNumber || identifier || "").toString().trim();
+
+  if (!loginField || !password) {
+    return next(new AppError("Please provide email or phone number and password!", 400));
   }
 
-  // Find user by email and check password
-  const user = await User.findOne({ email }).select("+password");
-
-  if (!user || !(await user.correctPassword(password, user.password))) {
-    return next(new AppError("Incorrect email or password", 401));
+  let query;
+  if (validator.isEmail(loginField)) {
+    query = { email: loginField.toLowerCase() };
+  } else if (/^\d+$/.test(loginField)) {
+    query = { phoneNumber: loginField };
+  } else {
+    return next(new AppError("Please provide a valid email or phone number!", 400));
   }
+
+  const user = await User.findOne(query).select("+password +active");
+
+  if (!user || !user.active) {
+    return next(new AppError("This account is deactivated. Please contact support.", 403));
+  }
+
+  if (!(await user.correctPassword(password, user.password))) {
+    return next(new AppError("Incorrect credentials", 401));
+  }
+
   createSendToken(user, 200, res);
 });
 
@@ -166,7 +184,7 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   //send it to user's email
  const resetURL = `${process.env.FRONTEND_URL}/resetPassword/${resetToken}`;
   const message =
-    `Forgot your password? Submit a PATCH request with your new password and password` +
+    `Forgot your password? Please use the link below to set a new password and confirm it` +
     `Confirm to: ${resetURL}.\nIf you didn't forget your password, please ignore this email!`;
   try {
     await sendEmail({

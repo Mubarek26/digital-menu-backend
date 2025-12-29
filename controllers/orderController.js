@@ -17,6 +17,16 @@ const calculateDeliveryFee = require("../utils/calculateDeliveryFee");
 
 const { orderTries, orderTimers } = require("../utils/dispatcher");
 
+// Emit to both the restaurant-specific room and the global admins room
+const emitOrderEvent = (io, restaurantId, event, payload) => {
+  if (!io) return;
+  if (restaurantId) {
+    const room = `restaurant_${String(restaurantId)}`;
+    io.to(room).emit(event, payload);
+  }
+  io.to("admins").emit(event, payload);
+};
+
 
 const parseNumeric = (value) => {
   const parsed = Number(value);
@@ -280,15 +290,14 @@ exports.createOrder = catchAsync(async (req, res, next) => {
         .lean();
 
       // log the plain populated object for debugging (JSON.stringify avoids circulars)
-      console.log(
-        "[orderController] Emitting newOrder (populated plain object) to restaurant:",
-        resolvedRestaurantId,
-        JSON.stringify(populatedOrder)
-      );
+      // console.log(
+      //   "[orderController] Emitting newOrder (populated plain object) to restaurant:",
+      //   resolvedRestaurantId,
+      //   JSON.stringify(populatedOrder)
+      // );
 
       // Emit only to clients subscribed to this restaurant room
-      const room = `restaurant_${String(resolvedRestaurantId)}`;
-      io.to(room).emit("newOrder", {
+      emitOrderEvent(io, resolvedRestaurantId, "newOrder", {
         message: "A new order has been placed!",
         order: populatedOrder,
       });
@@ -297,20 +306,19 @@ exports.createOrder = catchAsync(async (req, res, next) => {
       responseOrder = populatedOrder;
     } catch (err) {
       // fallback: emit a plain object derived from the mongoose document
-      console.error(
-        "[orderController] Error populating/sending newOrder via socket:",
-        err
-      );
+      // console.error(
+      //   "[orderController] Error populating/sending newOrder via socket:",
+      //   err
+      // );
 
       const plainOrder = newOrder.toObject ? newOrder.toObject() : JSON.parse(JSON.stringify(newOrder));
-      console.log(
-        "[orderController] Emitting newOrder (fallback plain object) to restaurant:",
-        resolvedRestaurantId,
-        JSON.stringify(plainOrder)
-      );
+      // console.log(
+      //   "[orderController] Emitting newOrder (fallback plain object) to restaurant:",
+      //   resolvedRestaurantId,
+      //   JSON.stringify(plainOrder)
+      // );
 
-      const room = `restaurant_${String(resolvedRestaurantId)}`;
-      io.to(room).emit("newOrder", {
+      emitOrderEvent(io, resolvedRestaurantId, "newOrder", {
         message: "A new order has been placed!",
         order: plainOrder,
       });
@@ -600,12 +608,10 @@ exports.confirmOrder = catchAsync(async (req, res, next) => {
         .populate({ path: "items.menuItem", select: "name price _id" })
         .lean();
       const targetRest = populated?.restaurantId || updated.restaurantId || resolvedRestaurantId;
-      const room = `restaurant_${String(targetRest)}`;
-      console.log("[orderController] Emitting order:updated (confirmOrder) to room:", room, JSON.stringify(populated));
-      io.to(room).emit("order:updated", { order: populated });
+      emitOrderEvent(io, targetRest, "order:updated", { order: populated });
     }
   } catch (err) {
-    console.error("[orderController] Failed to emit order:updated (confirmOrder):", err);
+    // console.error("[orderController] Failed to emit order:updated (confirmOrder):", err);
   }
 
   res.status(200).json({
@@ -622,7 +628,7 @@ exports.confirmOrder = catchAsync(async (req, res, next) => {
 
 // Update order status
 exports.updateOrderStatus = catchAsync(async (req, res, next) => {
-  let status = req.body.status;
+  const status = req.body.status;
 
   // If cancelling, do an atomic update that prevents cancelling an already-accepted order
   if (String(status).toLowerCase() === "cancelled") {
@@ -641,12 +647,10 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
             .populate({ path: "items.menuItem", select: "name price _id" })
             .lean();
           const targetRest = populated?.restaurantId || updated.restaurantId;
-          const room = `restaurant_${String(targetRest)}`;
-          console.log("[orderController] Emitting order:updated (cancel) to room:", room, JSON.stringify(populated));
-          io.to(room).emit("order:updated", { order: populated });
+          emitOrderEvent(io, targetRest, "order:updated", { order: populated });
       }
     } catch (err) {
-      console.error("[orderController] Failed to emit order:updated (cancel):", err);
+      // console.error("[orderController] Failed to emit order:updated (cancel):", err);
     }
 
     return res.status(200).json({
@@ -656,26 +660,76 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
     });
   }
 
-  // shoud not update if it is alredy accepted by delivery person
- 
-if (String(status).toLowerCase() === "accepted") {
-  const order = await Order.findById(req.params.id);
+  // Atomically accept an order that is currently unassigned (or already assigned to this user)
+  if (String(status).toLowerCase() === "accepted") {
+    // Support multiple shapes to identify the acting employee
+    const actorId =
+      req.user?._id ||
+      req.user?.id ||
+      req.body?.userId ||
+      req.body?.employeeId ||
+      req.body?.assignedEmployeeId ||
+      req.body?.user?._id ||
+      req.body?.user?.id ||
+      req.headers?.["x-user-id"] ||
+      req.headers?.["x-employee-id"];
 
-    orderTries.delete(String(order._id));
-if (orderTimers.has(String(order._id))) {
-  clearTimeout(orderTimers.get(String(order._id)));
-  orderTimers.delete(String(order._id));
-}
+    if (!actorId) {
+      throw new AppError("User context is required to accept an order", 400);
+    }
 
+    const updated = await Order.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        status: { $nin: ["cancelled", "completed"] },
+        $or: [
+          { assignedEmployeeId: null },
+          { assignedEmployeeId: actorId },
+        ],
+      },
+      {
+        $set: {
+          status: "accepted",
+          assignedEmployeeId: actorId,
+          updatedAt: Date.now(),
+        },
+      },
+      { new: true }
+    );
 
+    if (!updated) {
+      throw new AppError(
+        "Cannot accept order: it may already be assigned to another employee",
+        400
+      );
+    }
 
-  if (!order) {
-    throw new AppError("Order not found", 404);
+    // Clear dispatcher tracking since the order is now owned by this user
+    orderTries.delete(String(updated._id));
+    if (orderTimers.has(String(updated._id))) {
+      clearTimeout(orderTimers.get(String(updated._id)));
+      orderTimers.delete(String(updated._id));
+    }
+
+    try {
+      const io = req.app.get("io");
+      if (io && updated) {
+        const populated = await Order.findById(updated._id)
+          .populate({ path: "items.menuItem", select: "name price _id" })
+          .lean();
+        const targetRest = populated?.restaurantId || updated.restaurantId;
+        emitOrderEvent(io, targetRest, "order:updated", { order: populated });
+      }
+    } catch (err) {
+      // console.error("[orderController] Failed to emit order:updated (accept):", err);
+    }
+
+    return res.status(200).json({
+      status: "success",
+      message: "Order status updated successfully",
+      data: { order: updated },
+    });
   }
-  if (order.assignedEmployeeId && req.user && String(order.assignedEmployeeId) !== String(req.user._id)) {
-    throw new AppError("Cannot accept order: it has already been accepted by a delivery person", 400);
-  }
-}
 
   // For other status changes, allow update
   const order = await Order.findById(req.params.id);
@@ -683,6 +737,7 @@ if (orderTimers.has(String(order._id))) {
     throw new AppError("Order not found", 404);
   }
   order.status = status;
+  order.assignedEmployeeId = req.user ? req.user._id : order.assignedEmployeeId;
   order.updatedAt = Date.now();
   await order.save({ validateBeforeSave: false });
 
@@ -695,12 +750,10 @@ if (orderTimers.has(String(order._id))) {
         .populate({ path: "items.menuItem", select: "name price _id" })
         .lean();
       const targetRest = populated?.restaurantId || order.restaurantId;
-      const room = `restaurant_${String(targetRest)}`;
-      console.log("[orderController] Emitting order:updated (status change) to room:", room, JSON.stringify(populated));
-      io.to(room).emit("order:updated", { order: populated });
+      emitOrderEvent(io, targetRest, "order:updated", { order: populated });
     }
   } catch (err) {
-    console.error("[orderController] Failed to emit order:updated (status change):", err);
+    // console.error("[orderController] Failed to emit order:updated (status change):", err);
   }
 
   res.status(200).json({

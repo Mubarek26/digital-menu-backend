@@ -21,7 +21,7 @@ const userSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['available', 'busy'],
+    enum: ['available', 'busy','suspended','offline'],
     default: 'available',
     // required: true,
   },
@@ -44,7 +44,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['Waiter', 'Delivery', 'Admin', 'Manager', 'Owner','superadmin'],
+    enum: ['Waiter',"user", 'Delivery', 'Admin', 'Manager', 'Owner','superadmin'],
     default: 'Waiter',
   },
   phoneNumber: {
@@ -97,9 +97,9 @@ userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
       10
     );
     
-    console.log('🔍 JWT issued at:', JWTTimestamp);
-    console.log('🔍 Password changed at:', changedTimestamp);
-    console.log('🔍 Changed after?', JWTTimestamp < changedTimestamp);
+    // console.log('🔍 JWT issued at:', JWTTimestamp);
+    // console.log('🔍 Password changed at:', changedTimestamp);
+    // console.log('🔍 Changed after?', JWTTimestamp < changedTimestamp);
     return JWTTimestamp < changedTimestamp; // Return true if password was changed after the token was issued
   }
   return false; // If no passwordChangedAt, return false
@@ -113,7 +113,7 @@ userSchema.methods.createPasswordResetToken = function () {
     .update(resetToken)
     .digest('hex'); // Hash the token before saving it
   this.resetPasswordExpires = Date.now() + 10 * 60 * 1000; // Set expiration time for the token (10 minutes)
-  console.log({ resetToken }, this.resetPasswordToken);
+  // console.log({ resetToken }, this.resetPasswordToken);
   return resetToken;
 };
 
