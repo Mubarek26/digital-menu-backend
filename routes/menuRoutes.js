@@ -17,7 +17,7 @@ router
   .post(
     uploadImage,
     authController.protect,
-    authController.restrictTo("Admin", "Manager",'Owner'),
+    authController.restrictTo("superadmin", "Manager",'Owner'),
     menuController.createMenuItem
   ); // Create a new menu item
 

@@ -622,7 +622,7 @@ exports.confirmOrder = catchAsync(async (req, res, next) => {
 
 // Update order status
 exports.updateOrderStatus = catchAsync(async (req, res, next) => {
-  let status = req.body.status;
+  const status = req.body.status;
 
   // If cancelling, do an atomic update that prevents cancelling an already-accepted order
   if (String(status).toLowerCase() === "cancelled") {
@@ -656,26 +656,77 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
     });
   }
 
-  // shoud not update if it is alredy accepted by delivery person
- 
-if (String(status).toLowerCase() === "accepted") {
-  const order = await Order.findById(req.params.id);
+  // Atomically accept an order that is currently unassigned (or already assigned to this user)
+  if (String(status).toLowerCase() === "accepted") {
+    // Support multiple shapes to identify the acting employee
+    const actorId =
+      req.user?._id ||
+      req.user?.id ||
+      req.body?.userId ||
+      req.body?.employeeId ||
+      req.body?.assignedEmployeeId ||
+      req.body?.user?._id ||
+      req.body?.user?.id ||
+      req.headers?.["x-user-id"] ||
+      req.headers?.["x-employee-id"];
 
-    orderTries.delete(String(order._id));
-if (orderTimers.has(String(order._id))) {
-  clearTimeout(orderTimers.get(String(order._id)));
-  orderTimers.delete(String(order._id));
-}
+    if (!actorId) {
+      throw new AppError("User context is required to accept an order", 400);
+    }
 
+    const updated = await Order.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        status: { $nin: ["cancelled", "completed"] },
+        $or: [
+          { assignedEmployeeId: null },
+          { assignedEmployeeId: actorId },
+        ],
+      },
+      {
+        $set: {
+          status: "accepted",
+          assignedEmployeeId: actorId,
+          updatedAt: Date.now(),
+        },
+      },
+      { new: true }
+    );
 
+    if (!updated) {
+      throw new AppError(
+        "Cannot accept order: it may already be assigned to another employee",
+        400
+      );
+    }
 
-  if (!order) {
-    throw new AppError("Order not found", 404);
+    // Clear dispatcher tracking since the order is now owned by this user
+    orderTries.delete(String(updated._id));
+    if (orderTimers.has(String(updated._id))) {
+      clearTimeout(orderTimers.get(String(updated._id)));
+      orderTimers.delete(String(updated._id));
+    }
+
+    try {
+      const io = req.app.get("io");
+      if (io && updated) {
+        const populated = await Order.findById(updated._id)
+          .populate({ path: "items.menuItem", select: "name price _id" })
+          .lean();
+        const targetRest = populated?.restaurantId || updated.restaurantId;
+        const room = `restaurant_${String(targetRest)}`;
+        io.to(room).emit("order:updated", { order: populated });
+      }
+    } catch (err) {
+      // console.error("[orderController] Failed to emit order:updated (accept):", err);
+    }
+
+    return res.status(200).json({
+      status: "success",
+      message: "Order status updated successfully",
+      data: { order: updated },
+    });
   }
-  if (order.assignedEmployeeId && req.user && String(order.assignedEmployeeId) !== String(req.user._id)) {
-    throw new AppError("Cannot accept order: it has already been accepted by a delivery person", 400);
-  }
-}
 
   // For other status changes, allow update
   const order = await Order.findById(req.params.id);
@@ -683,6 +734,7 @@ if (orderTimers.has(String(order._id))) {
     throw new AppError("Order not found", 404);
   }
   order.status = status;
+  order.assignedEmployeeId = req.user ? req.user._id : order.assignedEmployeeId;
   order.updatedAt = Date.now();
   await order.save({ validateBeforeSave: false });
 
