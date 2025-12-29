@@ -13,7 +13,7 @@ router
 
 router
   .route("/")
-  .get(menuController.getAllMenuItems) // Get all menu items
+  .get(authController.protect, menuController.getAllMenuItems) // Get all menu items
   .post(
     uploadImage,
     authController.protect,
@@ -25,7 +25,7 @@ router
   
 router
   .route("/:id")
-  .get(menuController.getMenuItem) // Get a specific menu item by ID
+  .get(authController.protect, menuController.getMenuItem) // Get a specific menu item by ID
   .patch(
     uploadImage,
     authController.protect,
@@ -40,6 +40,6 @@ router
 
    router
   .route("/getrestaurantMenu/:restaurantId")
-  .get(menuController.getMenuItemsByRestaurantId); // Get menu items by restaurant ID
+  .get(authController.protect, menuController.getMenuItemsByRestaurantId); // Get menu items by restaurant ID
 
 module.exports = router; // Export the router for use in app.js

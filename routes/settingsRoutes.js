@@ -7,7 +7,7 @@ const settingController = require('../controllers/settingController');
 
 // Allow fetching and modifying settings. Some clients may POST to create settings,
 // so map POST to the same controller which handles create-or-update logic.
-router.route('/pricing').get(settingController.getPricingSettings);
-router.route('/').get(settingController.getSettings).patch(settingController.updateSettings).post(settingController.updateSettings);
+router.route('/pricing').get(authController.protect, settingController.getPricingSettings);
+router.route('/').get(authController.protect, settingController.getSettings).patch(authController.protect, settingController.updateSettings).post(authController.protect, settingController.updateSettings);
 
 module.exports = router;

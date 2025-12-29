@@ -3,13 +3,13 @@ const express = require("express");
 const router = express.Router();
 router
     .route('/')
-    .post(categoryController.createCategory);
+    .post(authController.protect, categoryController.createCategory);
     
 router
     .route('/')
-    .get(categoryController.getAllCategories);
+    .get(authController.protect, categoryController.getAllCategories);
 router
     .route('/:id')
-    .patch(categoryController.updateCategory)
-    .delete(categoryController.deleteCategory);
+    .patch(authController.protect, categoryController.updateCategory)
+    .delete(authController.protect, categoryController.deleteCategory);
 module.exports = router;
