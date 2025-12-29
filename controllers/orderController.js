@@ -17,6 +17,16 @@ const calculateDeliveryFee = require("../utils/calculateDeliveryFee");
 
 const { orderTries, orderTimers } = require("../utils/dispatcher");
 
+// Emit to both the restaurant-specific room and the global admins room
+const emitOrderEvent = (io, restaurantId, event, payload) => {
+  if (!io) return;
+  if (restaurantId) {
+    const room = `restaurant_${String(restaurantId)}`;
+    io.to(room).emit(event, payload);
+  }
+  io.to("admins").emit(event, payload);
+};
+
 
 const parseNumeric = (value) => {
   const parsed = Number(value);
@@ -287,8 +297,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
       // );
 
       // Emit only to clients subscribed to this restaurant room
-      const room = `restaurant_${String(resolvedRestaurantId)}`;
-      io.to(room).emit("newOrder", {
+      emitOrderEvent(io, resolvedRestaurantId, "newOrder", {
         message: "A new order has been placed!",
         order: populatedOrder,
       });
@@ -309,8 +318,7 @@ exports.createOrder = catchAsync(async (req, res, next) => {
       //   JSON.stringify(plainOrder)
       // );
 
-      const room = `restaurant_${String(resolvedRestaurantId)}`;
-      io.to(room).emit("newOrder", {
+      emitOrderEvent(io, resolvedRestaurantId, "newOrder", {
         message: "A new order has been placed!",
         order: plainOrder,
       });
@@ -600,9 +608,7 @@ exports.confirmOrder = catchAsync(async (req, res, next) => {
         .populate({ path: "items.menuItem", select: "name price _id" })
         .lean();
       const targetRest = populated?.restaurantId || updated.restaurantId || resolvedRestaurantId;
-      const room = `restaurant_${String(targetRest)}`;
-      // console.log("[orderController] Emitting order:updated (confirmOrder) to room:", room, JSON.stringify(populated));
-      io.to(room).emit("order:updated", { order: populated });
+      emitOrderEvent(io, targetRest, "order:updated", { order: populated });
     }
   } catch (err) {
     // console.error("[orderController] Failed to emit order:updated (confirmOrder):", err);
@@ -641,9 +647,7 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
             .populate({ path: "items.menuItem", select: "name price _id" })
             .lean();
           const targetRest = populated?.restaurantId || updated.restaurantId;
-          const room = `restaurant_${String(targetRest)}`;
-          // console.log("[orderController] Emitting order:updated (cancel) to room:", room, JSON.stringify(populated));
-          io.to(room).emit("order:updated", { order: populated });
+          emitOrderEvent(io, targetRest, "order:updated", { order: populated });
       }
     } catch (err) {
       // console.error("[orderController] Failed to emit order:updated (cancel):", err);
@@ -714,8 +718,7 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
           .populate({ path: "items.menuItem", select: "name price _id" })
           .lean();
         const targetRest = populated?.restaurantId || updated.restaurantId;
-        const room = `restaurant_${String(targetRest)}`;
-        io.to(room).emit("order:updated", { order: populated });
+        emitOrderEvent(io, targetRest, "order:updated", { order: populated });
       }
     } catch (err) {
       // console.error("[orderController] Failed to emit order:updated (accept):", err);
@@ -747,9 +750,7 @@ exports.updateOrderStatus = catchAsync(async (req, res, next) => {
         .populate({ path: "items.menuItem", select: "name price _id" })
         .lean();
       const targetRest = populated?.restaurantId || order.restaurantId;
-      const room = `restaurant_${String(targetRest)}`;
-      // console.log("[orderController] Emitting order:updated (status change) to room:", room, JSON.stringify(populated));
-      io.to(room).emit("order:updated", { order: populated });
+      emitOrderEvent(io, targetRest, "order:updated", { order: populated });
     }
   } catch (err) {
     // console.error("[orderController] Failed to emit order:updated (status change):", err);
