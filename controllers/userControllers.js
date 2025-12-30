@@ -26,7 +26,7 @@ exports.updateMe = catchAsync(async (req, res, next) => {
   const photo = req.file ? req.file.filename : undefined;
   // 2. Filter out unwanted fields names that are not allowed to be updated
   const filteredBody = {};
-  const allowedFields = ['name', 'photo', 'status']; // Add any other fields
+  const allowedFields = ['name', 'photo', 'status', 'phoneNumber'];
   Object.keys(req.body).forEach((el) => {
     if (allowedFields.includes(el)) filteredBody[el] = req.body[el];
   });
@@ -39,7 +39,7 @@ exports.updateMe = catchAsync(async (req, res, next) => {
     new: true, // return the updated document
     runValidators: true,
   });
-  const { email, status,name, role } = updatedUser;
+  const { email, status,name, role, phoneNumber } = updatedUser;
   const photoField = updatedUser.photo;
 
   res.status(200).json({
@@ -50,6 +50,7 @@ exports.updateMe = catchAsync(async (req, res, next) => {
         status,
         name,
         role,
+        phoneNumber,
         photo: photoField,
         // ...updatedUser._doc,
       },
@@ -60,6 +61,10 @@ exports.updateMe = catchAsync(async (req, res, next) => {
 
 
 exports.deleteMe = catchAsync(async (req, res, next) => {
+  if (req.user && req.user.role === 'superadmin') {
+    return next(new AppError('Cannot deactivate a superadmin account', 403));
+  }
+
   await User.findByIdAndUpdate(req.user.id, { active: false });
   res.status(204).json({
     status: 'success',

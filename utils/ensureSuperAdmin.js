@@ -11,9 +11,15 @@ async function ensureSuperAdmin() {
       return;
     }
 
-    const existing = await User.findOne({ role: 'superadmin' });
+    const existing = await User.findOne({ role: 'superadmin' }).select('+active');
     if (existing) {
-      console.log('Super admin already exists.');
+      if (existing.active === false) {
+        existing.active = true;
+        await existing.save({ validateBeforeSave: false });
+        console.log('Super admin reactivated.');
+      } else {
+        console.log('Super admin already exists.');
+      }
       return;
     }
 
