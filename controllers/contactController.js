@@ -21,7 +21,7 @@ exports.sendContactEmail = catchAsync(async (req, res, next) => {
       html: adminTemplate(name, email, message)
     });
 
-    return res.status(200).json({ success: true, message: "Message sent" });
+    return res.status(200).json({ success: true, message: "Email sent successfully!" });
 
   } catch (error) {
     console.log("Resend error:", error);
