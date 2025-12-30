@@ -15,6 +15,7 @@ const restaurantRoues = require("./routes/restaurantRoutes");
 const setupSwagger = require("./swagger/swagger");
 const settingsRoutes = require("./routes/settingsRoutes");
 const analyticsRoutes = require("./routes/analyticsRoute");
+const contactRoutes = require("./routes/contactRoutes");
 const deliveryRoutes = require("./routes/deliveryRoutes");
 
 dotenv.config(); // Load environment variables
@@ -50,6 +51,7 @@ const allowedOrigins = [
   "https://digital-menu-backend-73fs.onrender.com/api/v1",
   "https://digital-menu-backend-73fs.onrender.com",
   "https://digital-menu-tau-five.vercel.app",
+  "http://localhost:8080",
   "https://saro-delivery-backend-3003fd28f5b8.herokuapp.com",
   "https://saro-delivery-backend-3003fd28f5b8.herokuapp.com/api/v1",
   "https://saro-dev.vercel.app",
@@ -88,6 +90,7 @@ app.use("/api/v1/categories", categoryRoutes);
 app.use("/api/v1/payment", paymentRoutes);
 app.use("/api/v1/settings", settingsRoutes);
 app.use("/api/v1/analytics", analyticsRoutes);
+app.use("/api/v1/contact", contactRoutes);
 app.use("/api/v1/delivery", deliveryRoutes);
 // (restaurant routes already mounted above)
 // console.log('app: mounted /api/v1/settings');
