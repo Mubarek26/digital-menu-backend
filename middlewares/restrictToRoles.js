@@ -4,6 +4,7 @@ const Restaurant = require('../models/restaurants');
 
 // normalize roles
 const normalizeRole = (role) => {
+  
   if (!role) return "";
   return role.trim().toLowerCase();
 };
@@ -11,8 +12,8 @@ const normalizeRole = (role) => {
 const restrictToRoles = catchAsync(async (req, res, next) => {
   const role = normalizeRole(req.user.role);
 
-  if (role === "superadmin") {
-    // superadmin → no restriction
+  if (role === "superadmin" || role === "manager") {
+    // superadmin and manager → no restriction
     return next();
   }
 
