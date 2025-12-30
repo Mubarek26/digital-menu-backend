@@ -30,7 +30,7 @@ router.route("/deleteMe").delete(authController.protect, userControllers.deleteM
 // Restrict all routes after this middleware to admin users
 // router.use(authController.restrictTo("super admin"));
 
-router.route("/").get(getAllUsers);
+router.route("/").get(authController.protect, getAllUsers);
 router.route("/signup").post(uploads.single("photo"), signup); 
 
 router.get('/check-auth', authController.protect, (req, res) => {
@@ -38,6 +38,6 @@ router.get('/check-auth', authController.protect, (req, res) => {
 });
 
 
-router.route("/:id").get(getUser).patch(updateUsers).delete(deleteUsers);
+router.route("/:id").get(authController.protect, getUser).patch(authController.protect, updateUsers).delete(authController.protect, deleteUsers);
 
 module.exports = router;

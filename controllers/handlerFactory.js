@@ -39,9 +39,36 @@ exports.updateOne = (Model) =>
       return next(new AppError('No document found with that ID', 404));
     }
 
-    // If the target is a superadmin, prevent changing their `role` field only
-    if (existing.role && existing.role === 'superadmin' && Object.prototype.hasOwnProperty.call(req.body, 'role')) {
-      return next(new AppError('Cannot edit role of a superadmin user', 403));
+    const isSuperAdmin = existing.role && existing.role === 'superadmin';
+
+    // Prevent anyone except the superadmin themselves from editing that account
+    if (isSuperAdmin && (!req.user || String(req.user._id) !== String(existing._id))) {
+      return next(new AppError('Only the superadmin can edit their own account', 403));
+    }
+
+    if (isSuperAdmin && Object.prototype.hasOwnProperty.call(req.body, 'role')) {
+      const requestedRole = req.body.role;
+      const isRoleChange = requestedRole && requestedRole !== existing.role;
+
+      if (isRoleChange) {
+        return next(new AppError('Cannot edit role of a superadmin user', 403));
+      }
+
+      // Drop no-op role field so superadmin profile updates still work when role is sent from forms
+      delete req.body.role;
+    }
+
+    if (isSuperAdmin && Object.prototype.hasOwnProperty.call(req.body, 'active')) {
+      const requestedActive = req.body.active;
+      const wantsInactive =
+        requestedActive === false ||
+        requestedActive === 0 ||
+        requestedActive === 'false' ||
+        requestedActive === '0';
+
+      if (wantsInactive) {
+        return next(new AppError('Cannot deactivate a superadmin user', 403));
+      }
     }
     const doc = await Model.findByIdAndUpdate(req.params.id, req.body, {
       new: true, // return the updated document
