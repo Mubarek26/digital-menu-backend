@@ -55,7 +55,7 @@ const allowedOrigins = [
   "https://saro-dev.vercel.app",
   "https://saro-prod.vercel.app",
   "https://saro-landing-dev.vercel.app",
-  "http://localhost:5000",
+  "http://localhost:3000",
 ];
 
 app.use(

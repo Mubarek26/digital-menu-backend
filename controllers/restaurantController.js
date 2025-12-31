@@ -152,7 +152,7 @@ const assignOwner = async (req, res) => {
     }
 
     restaurant.ownerId = ownerId;
-    restaurant.status = "active"; // optional: activate when assigned
+    // restaurant.status = "active"; // optional: activate when assigned
     await restaurant.save();
     // populate owner info before returning so frontend has name/email/phone
     await restaurant.populate("ownerId", "name email phoneNumber");
